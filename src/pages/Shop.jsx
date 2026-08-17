@@ -19,7 +19,7 @@ export default function Shop() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [sortBy, setSortBy] = useState("Newest");
-  const [maxPrice, setMaxPrice] = useState(5000);
+  const [maxPrice, setMaxPrice] = useState(50000);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [minRating, setMinRating] = useState(0);
 
@@ -43,7 +43,7 @@ export default function Shop() {
     setSearchQuery("");
     setSelectedCategory("All");
     setSortBy("Newest");
-    setMaxPrice(5000);
+    setMaxPrice(50000);
     setInStockOnly(false);
     setMinRating(0);
     setSearchParams({});
@@ -53,7 +53,7 @@ export default function Shop() {
     searchQuery ||
     selectedCategory !== "All" ||
     sortBy !== "Newest" ||
-    maxPrice < 5000 ||
+    maxPrice < 50000 ||
     inStockOnly ||
     minRating > 0;
 
@@ -140,8 +140,8 @@ export default function Shop() {
                   <input
                     type="range"
                     min="500"
-                    max="5000"
-                    step="100"
+                    max="50000"
+                    step="500"
                     value={maxPrice}
                     className="shop-range-slider"
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
