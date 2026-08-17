@@ -11,7 +11,6 @@ import {
   fetchAllOrders,
 } from "@/services/supabaseHelpers";
 import { logout, syncProfile } from "@/features/auth/authSlice";
-import { supabase } from "@/services/supabase";
 
 /* ─── Avatar Presets ────────────────────────────────────── */
 const AVATAR_PRESETS = [
@@ -194,19 +193,10 @@ export default function Settings() {
     }
     setDeleteLoading(true); setError("");
     try {
-      // 1. Delete profile + data rows
+      // deleteUserAccountPermanently calls the delete_user() RPC which
+      // removes the user from auth.users, then signs out + clears storage.
+      // After this the user CAN re-register with the same email.
       await deleteUserAccountPermanently(user?.id);
-
-      // 2. Call Supabase admin delete via RPC if available, otherwise sign out
-      try {
-        const { error: rpcErr } = await supabase.rpc("delete_user");
-        if (rpcErr) console.warn("RPC delete skipped:", rpcErr.message);
-      } catch (rpcEx) {
-        console.warn("RPC unavailable:", rpcEx.message);
-      }
-
-      // 3. Force sign out
-      await supabase.auth.signOut();
       dispatch(logout());
       setShowDeleteModal(false);
       navigate("/?account_deleted=true");

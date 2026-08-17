@@ -124,38 +124,56 @@ export async function changeUserPassword(newPassword) {
 }
 
 export async function deleteUserAccountPermanently(userId) {
-  if (userId) {
-    try {
-      await supabase.from("wishlist").delete().eq("user_id", userId);
-    } catch (e) {
-      console.warn("Wishlist cleanup:", e.message);
+  // Step 1: Call the server-side RPC function.
+  // This SQL function runs with SECURITY DEFINER (admin privileges) and:
+  //   - Deletes the user's profile, wishlist, carts rows
+  //   - Deletes the user from auth.users permanently
+  // Without this RPC, client code cannot touch auth.users.
+  //
+  // ⚠️  You MUST create this function once in Supabase SQL Editor:
+  //
+  //   CREATE OR REPLACE FUNCTION delete_user()
+  //   RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+  //   BEGIN
+  //     DELETE FROM public.profiles WHERE id = auth.uid();
+  //     DELETE FROM public.wishlist  WHERE user_id = auth.uid();
+  //     DELETE FROM public.carts     WHERE user_id = auth.uid();
+  //     DELETE FROM auth.users       WHERE id = auth.uid();
+  //   END;
+  //   $$;
+
+  try {
+    const { error: rpcError } = await supabase.rpc("delete_user");
+    if (rpcError) {
+      // RPC not created yet — fallback: delete data rows manually, user stays in auth
+      console.warn("delete_user RPC not found — falling back to manual data cleanup only.", rpcError.message);
+      if (userId) {
+        try { await supabase.from("wishlist").delete().eq("user_id", userId); } catch (e) { console.warn(e.message); }
+        try { await supabase.from("carts").delete().eq("user_id", userId);    } catch (e) { console.warn(e.message); }
+        try { await supabase.from("profiles").delete().eq("id", userId);      } catch (e) { console.warn(e.message); }
+      }
     }
-    try {
-      await supabase.from("carts").delete().eq("user_id", userId);
-    } catch (e) {
-      console.warn("Cart cleanup:", e.message);
-    }
-    try {
-      await supabase.from("profiles").delete().eq("id", userId);
-    } catch (e) {
-      console.warn("Profile cleanup:", e.message);
-    }
+  } catch (e) {
+    console.warn("deleteUserAccountPermanently RPC error:", e.message);
   }
 
+  // Step 2: Sign out — invalidates the session immediately
   try {
     await supabase.auth.signOut();
   } catch (e) {
     console.warn("Sign out:", e.message);
   }
 
-  // Clear client storage
+  // Step 3: Clear all local storage so no stale data remains
   localStorage.removeItem("drip_admin_auth");
   localStorage.removeItem("drip_guest_uuid");
   localStorage.removeItem("drip_custom_admin_passcode");
   localStorage.removeItem("persist:root");
+  localStorage.removeItem("drip_orders_db");
 
   return true;
 }
+
 
 /* ==========================================================================
    WISHLIST HELPERS
