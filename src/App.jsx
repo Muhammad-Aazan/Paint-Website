@@ -29,14 +29,14 @@ const NotFound      = lazy(() => import("@/pages/NotFound"));
 
 function PageLoader() {
   return (
-    <div style={{
-      minHeight: "60vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "24px",
-    }}>
-      <div style={{ animation: "dot-pulse 1.2s ease-in-out infinite" }}>🎨</div>
+    <div className="page-loader">
+      <div className="page-loader-inner">
+        <div className="page-loader-logo">DRIP<span className="page-loader-dot">.</span></div>
+        <div className="page-loader-bar-track">
+          <div className="page-loader-bar-fill" />
+        </div>
+        <p className="page-loader-label">Loading…</p>
+      </div>
     </div>
   );
 }

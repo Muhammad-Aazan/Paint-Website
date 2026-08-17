@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Navbar, Footer, Button } from "@/components";
@@ -11,8 +11,10 @@ import {
   fetchAllOrders,
 } from "@/services/supabaseHelpers";
 import { logout, syncProfile } from "@/features/auth/authSlice";
+import { supabase } from "@/services/supabase";
 
-const avatarPresets = [
+/* ─── Avatar Presets ────────────────────────────────────── */
+const AVATAR_PRESETS = [
   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
@@ -20,571 +22,474 @@ const avatarPresets = [
   "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
 ];
 
+/* ─── Tab config ────────────────────────────────────────── */
+const TABS = [
+  { id: "profile",  label: "Profile",   icon: "👤" },
+  { id: "orders",   label: "Orders",    icon: "📦" },
+  { id: "security", label: "Security",  icon: "🔒" },
+  { id: "danger",   label: "Danger",    icon: "⚠️" },
+];
+
+/* ─── Memoised sub-components ───────────────────────────── */
+const StatusBadge = memo(({ status }) => {
+  const map = {
+    pending:    { bg: "#fef3c7", color: "#92400e", label: "Pending"    },
+    approved:   { bg: "#d1fae5", color: "#065f46", label: "Approved"   },
+    shipped:    { bg: "#dbeafe", color: "#1e40af", label: "Shipped"    },
+    delivered:  { bg: "#dcfce7", color: "#166534", label: "Delivered"  },
+    cancelled:  { bg: "#fee2e2", color: "#991b1b", label: "Cancelled"  },
+  };
+  const s = map[status] || map.pending;
+  return (
+    <span style={{ background: s.bg, color: s.color, fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+      {s.label}
+    </span>
+  );
+});
+
+const OrderCard = memo(({ ord, onTrack }) => (
+  <div className="profile-order-card">
+    <div className="profile-order-card-left">
+      <div className="profile-order-meta">
+        <span className="profile-order-num">{ord.order_number || `#${ord.id}`}</span>
+        <StatusBadge status={ord.order_status || ord.status || "pending"} />
+      </div>
+      <p className="profile-order-info">
+        {new Date(ord.created_at || Date.now()).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })}
+        &nbsp;·&nbsp;
+        <strong>Rs. {Number(ord.total || ord.total_amount || 0).toLocaleString()}</strong>
+      </p>
+    </div>
+    <button className="btn btn-primary btn-sm" onClick={() => onTrack(ord.order_number || ord.id)}>
+      Track →
+    </button>
+  </div>
+));
+
+const ToggleRow = memo(({ label, desc, checked, onChange }) => (
+  <div className="profile-toggle-row">
+    <div>
+      <p className="profile-toggle-label">{label}</p>
+      <p className="profile-toggle-desc">{desc}</p>
+    </div>
+    <label className="toggle-switch">
+      <input type="checkbox" checked={checked} onChange={onChange} />
+      <span className="toggle-slider" />
+    </label>
+  </div>
+));
+
+/* ─── Main Component ─────────────────────────────────────── */
 export default function Settings() {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { user, isAuthenticated } = useSelector((state) => state.auth);
+  const navigate  = useNavigate();
+  const dispatch  = useDispatch();
+  const { user, isAuthenticated } = useSelector((s) => s.auth);
 
-  const [activeTab, setActiveTab] = useState("profile"); // profile | orders | security | danger
-
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [phone, setPhone] = useState("");
+  const [activeTab, setActiveTab] = useState("profile");
+  const [fullName, setFullName]   = useState("");
+  const [username, setUsername]   = useState("");
+  const [phone, setPhone]         = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-
-  const [newPassword, setNewPassword] = useState("");
+  const [city, setCity]           = useState("");
+  const [address, setAddress]     = useState("");
+  const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyEmail, setNotifyEmail]   = useState(true);
   const [notifyOrders, setNotifyOrders] = useState(true);
   const [notifyOffers, setNotifyOffers] = useState(false);
-
-  const [userOrders, setUserOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
-  // Delete Account Modal State
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userOrders, setUserOrders]     = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [message, setMessage]           = useState("");
+  const [error, setError]               = useState("");
+  const [showDeleteModal, setShowDeleteModal]     = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading]         = useState(false);
 
+  /* Load profile + orders */
   useEffect(() => {
-    async function loadData() {
-      if (!user?.id) return;
+    if (!user?.id) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
       try {
-        setLoading(true);
         const [profile, allOrders] = await Promise.all([
           fetchUserProfile(user.id),
           fetchAllOrders(),
         ]);
-
+        if (cancelled) return;
         if (profile) {
           setFullName(profile.full_name || user.user_metadata?.full_name || "");
           setUsername(profile.username || "");
-          setPhone(profile.phone || user.user_metadata?.phone || "");
+          setPhone(profile.phone    || user.user_metadata?.phone || "");
           setAvatarUrl(profile.avatar_url || "");
-          setCity(profile.city || "");
+          setCity(profile.city    || "");
           setAddress(profile.address || "");
         } else {
           setFullName(user.user_metadata?.full_name || "");
           setPhone(user.user_metadata?.phone || "");
         }
-
-        // Filter orders for this user
-        const myOrders = (allOrders || []).filter(
-          (o) => o.user_id === user.id || o.user_id === null
-        );
-        setUserOrders(myOrders);
-      } catch (err) {
-        console.warn("Load profile error:", err.message);
+        const mine = (allOrders || []).filter((o) => o.user_id === user.id || o.user_id === null);
+        setUserOrders(mine);
+      } catch (e) {
+        console.warn("Profile load:", e.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-
-    loadData();
+    load();
+    return () => { cancelled = true; };
   }, [user]);
 
-  async function handleSaveProfile(e) {
+  /* Derived display name for sidebar */
+  const displayName = useMemo(() => fullName || user?.user_metadata?.full_name || "Valued Customer", [fullName, user]);
+  const displayAvatar = useMemo(() => avatarUrl || AVATAR_PRESETS[0], [avatarUrl]);
+
+  /* Handlers */
+  const handleSaveProfile = useCallback(async (e) => {
     e.preventDefault();
-    if (!user?.id) {
-      setError("Please sign in to save profile.");
-      return;
-    }
-
+    if (!user?.id) { setError("Please sign in first."); return; }
+    setLoading(true); setMessage(""); setError("");
     try {
-      setLoading(true);
-      setMessage("");
-      setError("");
-
-      await updateUserProfile(user.id, {
-        full_name: fullName,
-        username,
-        phone,
-        avatar_url: avatarUrl,
-        city,
-        address,
-        email: user.email,
-      });
-
-      // Instantly update Navbar avatar in Redux
+      await updateUserProfile(user.id, { full_name: fullName, username, phone, avatar_url: avatarUrl, city, address, email: user.email });
       dispatch(syncProfile({ avatar_url: avatarUrl, full_name: fullName }));
+      setMessage("Profile saved successfully!");
+    } catch (err) { setError(err.message || "Failed to update profile."); }
+    finally { setLoading(false); }
+  }, [user, fullName, username, phone, avatarUrl, city, address, dispatch]);
 
-      setMessage("Profile details saved successfully!");
-    } catch (err) {
-      setError(err.message || "Failed to update profile.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleChangePassword(e) {
+  const handleChangePassword = useCallback(async (e) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
+    if (newPassword !== confirmPassword) { setError("Passwords do not match."); return; }
+    setLoading(true); setMessage(""); setError("");
     try {
-      setLoading(true);
-      setMessage("");
-      setError("");
-
       await changeUserPassword(newPassword);
-      setMessage("Password updated successfully!");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err) {
-      setError(err.message || "Failed to change password.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      setMessage("Password updated!");
+      setNewPassword(""); setConfirmPassword("");
+    } catch (err) { setError(err.message || "Failed to change password."); }
+    finally { setLoading(false); }
+  }, [newPassword, confirmPassword]);
 
-  async function handleAvatarUpload(e) {
-    const file = e.target.files[0];
+  const handleAvatarUpload = useCallback(async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
+    setLoading(true); setMessage(""); setError("");
     try {
-      setLoading(true);
-      setMessage("");
-      setError("");
       const url = await uploadFileToBucket("avatars", file);
       setAvatarUrl(url);
-      setMessage("Avatar uploaded! Click 'Save Profile' to keep changes.");
-    } catch (err) {
-      setError(err.message || "Failed to upload avatar.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      setMessage("Avatar uploaded! Click Save to apply.");
+    } catch (err) { setError(err.message || "Upload failed."); }
+    finally { setLoading(false); }
+  }, []);
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     dispatch(logout());
     localStorage.removeItem("drip_admin_auth");
     navigate("/");
-  }
+  }, [dispatch, navigate]);
 
-  async function handleDeleteAccount() {
+  const handleDeleteAccount = useCallback(async () => {
     if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
-      setError("Please type DELETE in the box to confirm account deletion.");
+      setError("Type DELETE to confirm.");
       return;
     }
-
+    setDeleteLoading(true); setError("");
     try {
-      setDeleteLoading(true);
-      setError("");
-
+      // 1. Delete profile + data rows
       await deleteUserAccountPermanently(user?.id);
+
+      // 2. Call Supabase admin delete via RPC if available, otherwise sign out
+      try {
+        const { error: rpcErr } = await supabase.rpc("delete_user");
+        if (rpcErr) console.warn("RPC delete skipped:", rpcErr.message);
+      } catch (rpcEx) {
+        console.warn("RPC unavailable:", rpcEx.message);
+      }
+
+      // 3. Force sign out
+      await supabase.auth.signOut();
       dispatch(logout());
       setShowDeleteModal(false);
       navigate("/?account_deleted=true");
     } catch (err) {
-      setError(err.message || "Failed to delete account. Please try again.");
+      setError(err.message || "Failed to delete account. Try again.");
     } finally {
       setDeleteLoading(false);
     }
-  }
+  }, [deleteConfirmText, user, dispatch, navigate]);
+
+  const switchTab = useCallback((id) => {
+    setActiveTab(id); setMessage(""); setError("");
+  }, []);
+
+  const trackOrder = useCallback((id) => navigate(`/track-order?id=${id}`), [navigate]);
 
   return (
     <>
       <Navbar />
-
-      <main className="settings-page" style={{ padding: "40px 0 96px", background: "var(--canvas)" }}>
+      <main className="profile-page">
         <div className="wrap">
-          {/* Header */}
-          <div className="cart-header" style={{ marginBottom: "32px" }}>
+          {/* ── Page Header ── */}
+          <div className="profile-page-header">
             <div>
-              <p className="products-eyebrow">ACCOUNT MANAGEMENT</p>
-              <h1 className="products-title">Profile & Settings</h1>
+              <p className="products-eyebrow">MY ACCOUNT</p>
+              <h1 className="products-title">Profile &amp; Settings</h1>
             </div>
             {isAuthenticated && (
-              <Button text="Sign Out 🚪" className="btn btn-ghost btn-sm" onClick={handleLogout} />
+              <button className="btn btn-ghost btn-sm profile-signout-btn" onClick={handleLogout}>
+                Sign Out
+              </button>
             )}
           </div>
 
-          {/* Tab Navigation Pill Bar */}
-          <div style={{ display: "flex", gap: "10px", marginBottom: "32px", overflowX: "auto", paddingBottom: "4px" }}>
-            <button
-              type="button"
-              className={`calc-preset-pill ${activeTab === "profile" ? "active" : ""}`}
-              onClick={() => { setActiveTab("profile"); setMessage(""); setError(""); }}
-            >
-              👤 Profile Details
-            </button>
-            <button
-              type="button"
-              className={`calc-preset-pill ${activeTab === "orders" ? "active" : ""}`}
-              onClick={() => { setActiveTab("orders"); setMessage(""); setError(""); }}
-            >
-              📦 My Orders ({userOrders.length})
-            </button>
-            <button
-              type="button"
-              className={`calc-preset-pill ${activeTab === "security" ? "active" : ""}`}
-              onClick={() => { setActiveTab("security"); setMessage(""); setError(""); }}
-            >
-              🔒 Security & Password
-            </button>
-            <button
-              type="button"
-              className={`calc-preset-pill ${activeTab === "danger" ? "active" : ""}`}
-              style={{ color: activeTab === "danger" ? "white" : "var(--poppy)", background: activeTab === "danger" ? "var(--poppy)" : "transparent", borderColor: "var(--poppy)" }}
-              onClick={() => { setActiveTab("danger"); setMessage(""); setError(""); }}
-            >
-              ⚠️ Delete Account
-            </button>
-          </div>
-
-          <div className="settings-layout">
-            {/* Left Profile Sidebar */}
-            <aside className="settings-sidebar">
-              <div className="settings-avatar-ring">
-                <img
-                  src={avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"}
-                  alt="Avatar"
-                  className="settings-avatar"
-                />
+          <div className="profile-layout">
+            {/* ── Sidebar ── */}
+            <aside className="profile-sidebar">
+              <div className="profile-sidebar-avatar-wrap">
+                <img src={displayAvatar} alt="Avatar" className="profile-sidebar-avatar" />
+                <div className="profile-sidebar-avatar-edit">
+                  <input type="file" accept="image/*" id="avatar-quick-upload" onChange={handleAvatarUpload} style={{ display: "none" }} />
+                  <label htmlFor="avatar-quick-upload" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }} title="Upload photo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </label>
+                </div>
               </div>
+              <h3 className="profile-sidebar-name">{displayName}</h3>
+              <p className="profile-sidebar-email">{user?.email || "—"}</p>
+              {phone && <p className="profile-sidebar-phone">📞 {phone}</p>}
 
-              <h3 className="settings-user-name">{fullName || "Valued Customer"}</h3>
-              <p className="settings-user-email">{user?.email || "guest@drippaints.com"}</p>
-              {phone && <p style={{ fontSize: "12px", color: "var(--ink-muted)", marginTop: "4px" }}>📞 {phone}</p>}
-
-              <div style={{ textAlign: "left", marginTop: "1.5rem" }}>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--ink-muted)", marginBottom: "0.5rem", fontFamily: "var(--mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>PRESET AVATARS</p>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
-                  {avatarPresets.map((preset, idx) => (
-                    <img
-                      key={idx}
-                      src={preset}
-                      alt={`Preset ${idx + 1}`}
-                      onClick={() => setAvatarUrl(preset)}
-                      style={{
-                        width: "34px",
-                        height: "34px",
-                        borderRadius: "50%",
-                        cursor: "pointer",
-                        border: avatarUrl === preset ? "2px solid var(--cobalt)" : "2px solid transparent",
-                        opacity: avatarUrl === preset ? 1 : 0.7,
-                        transition: "all 0.2s ease",
-                      }}
-                    />
+              {/* Avatar presets */}
+              <div className="profile-preset-section">
+                <p className="profile-preset-label">Quick Avatars</p>
+                <div className="profile-preset-row">
+                  {AVATAR_PRESETS.map((p, i) => (
+                    <button key={i} type="button" onClick={() => setAvatarUrl(p)} className={`profile-preset-img-btn ${avatarUrl === p ? "active" : ""}`}>
+                      <img src={p} alt={`Avatar ${i + 1}`} />
+                    </button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--paper-line)" }}>
-                <button
-                  type="button"
-                  onClick={() => navigate("/track-order")}
-                  className="btn btn-ghost btn-sm"
-                  style={{ width: "100%", marginBottom: "8px" }}
-                >
-                  🚚 Track Any Order →
-                </button>
-                <Button text="Sign Out 🚪" className="btn btn-ghost btn-sm" style={{ width: "100%", color: "var(--poppy)" }} onClick={handleLogout} />
-              </div>
+              {/* Nav */}
+              <nav className="profile-sidebar-nav">
+                {TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`profile-nav-btn ${activeTab === t.id ? "active" : ""} ${t.id === "danger" ? "danger-tab" : ""}`}
+                    onClick={() => switchTab(t.id)}
+                  >
+                    <span>{t.icon}</span>
+                    <span>{t.label}</span>
+                    {t.id === "orders" && userOrders.length > 0 && <span className="profile-nav-badge">{userOrders.length}</span>}
+                  </button>
+                ))}
+              </nav>
+
+              <button type="button" className="btn btn-ghost btn-sm profile-track-btn" onClick={() => navigate("/track-order")}>
+                🚚 Track an Order
+              </button>
             </aside>
 
-            {/* Right Main Content */}
-            <main className="settings-main">
+            {/* ── Main Content ── */}
+            <section className="profile-main">
+              {/* Alerts */}
               {message && (
-                <div className="settings-alert success" style={{ marginBottom: "20px" }}>
-                  ✔ {message}
+                <div className="profile-alert profile-alert--success">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  {message}
                 </div>
               )}
-
               {error && (
-                <div className="settings-alert error" style={{ marginBottom: "20px" }}>
-                  ⚠ {error}
+                <div className="profile-alert profile-alert--error">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {error}
                 </div>
               )}
 
-              {/* TAB 1: PROFILE DETAILS */}
+              {/* ── TAB: PROFILE ── */}
               {activeTab === "profile" && (
-                <form onSubmit={handleSaveProfile}>
-                  <h3 className="settings-section-title">Personal Profile Details</h3>
-                  <p className="settings-section-desc">Manage your public information and shipping address.</p>
-
-                  <div className="settings-form-grid">
-                    <div className="login-field">
-                      <label>Full Name</label>
-                      <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Ali Ahmed" required />
-                    </div>
-
-                    <div className="login-field">
-                      <label>Username</label>
-                      <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. aliahmed99" />
-                    </div>
+                <form onSubmit={handleSaveProfile} className="profile-form">
+                  <div className="profile-section-head">
+                    <h2 className="profile-section-title">Personal Details</h2>
+                    <p className="profile-section-desc">Update your name, contact info and delivery address.</p>
                   </div>
 
-                  <div className="settings-form-grid">
+                  <div className="profile-grid-2">
                     <div className="login-field">
-                      <label>Email Address (Account ID)</label>
-                      <input type="email" value={user?.email || "guest@drippaints.com"} disabled style={{ background: "var(--canvas-dark)", cursor: "not-allowed" }} />
+                      <label>Full Name</label>
+                      <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Ali Ahmed" required />
                     </div>
-
+                    <div className="login-field">
+                      <label>Username</label>
+                      <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="aliahmed99" />
+                    </div>
+                    <div className="login-field">
+                      <label>Email Address <span style={{ color: "var(--ink-muted)", fontSize: "11px" }}>(cannot change)</span></label>
+                      <input type="email" value={user?.email || ""} disabled style={{ opacity: 0.55, cursor: "not-allowed" }} />
+                    </div>
                     <div className="login-field">
                       <label>Phone Number</label>
                       <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+92 300 1234567" />
                     </div>
                   </div>
 
-                  <div className="login-field" style={{ marginBottom: "24px" }}>
-                    <label>Avatar Picture URL or Upload File</label>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <div className="login-field" style={{ marginBottom: "28px" }}>
+                    <label>Avatar URL or Upload</label>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                       <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://example.com/photo.jpg" style={{ flex: 1 }} />
                       <input type="file" accept="image/*" id="avatar-upload" onChange={handleAvatarUpload} style={{ display: "none" }} />
-                      <label htmlFor="avatar-upload" className="btn btn-ghost" style={{ cursor: "pointer", padding: "10px 16px", borderRadius: "8px" }}>Upload 📸</label>
+                      <label htmlFor="avatar-upload" className="btn btn-ghost btn-sm" style={{ cursor: "pointer", whiteSpace: "nowrap" }}>Upload 📸</label>
                     </div>
                   </div>
 
-                  <h3 className="settings-section-title" style={{ marginTop: "32px" }}>Default Delivery Address</h3>
-                  <p className="settings-section-desc">Prefilled automatically at checkout for fast 1-click orders.</p>
+                  <div className="profile-section-head" style={{ marginTop: "8px" }}>
+                    <h2 className="profile-section-title">Delivery Address</h2>
+                    <p className="profile-section-desc">Pre-filled at checkout for fast 1-click orders.</p>
+                  </div>
 
-                  <div className="settings-form-grid" style={{ gridTemplateColumns: "1fr 2fr" }}>
+                  <div className="profile-grid-city">
                     <div className="login-field">
                       <label>City</label>
                       <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Karachi" />
                     </div>
-
                     <div className="login-field">
                       <label>Street Address</label>
-                      <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House 123, Street 4, DHA Phase 5" />
+                      <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House 42, Street 4, DHA Phase 5" />
                     </div>
                   </div>
 
-                  <Button text={loading ? "Saving..." : "Save Profile Details"} className="btn btn-primary" />
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? "Saving…" : "Save Profile"}
+                  </button>
                 </form>
               )}
 
-              {/* TAB 2: MY ORDERS */}
+              {/* ── TAB: ORDERS ── */}
               {activeTab === "orders" && (
-                <div>
-                  <h3 className="settings-section-title">My Placed Orders</h3>
-                  <p className="settings-section-desc">View and track all your recent paint and tool orders in real-time.</p>
-
-                  {userOrders.length === 0 ? (
-                    <div className="empty-state" style={{ padding: "40px 0" }}>
-                      <div className="empty-state-icon">🛍️</div>
-                      <h4 style={{ fontFamily: "var(--display)", fontSize: "18px" }}>No orders placed yet</h4>
-                      <p style={{ color: "var(--ink-soft)", marginBottom: "16px" }}>Explore our catalog and order premium paints.</p>
-                      <Button text="Start Shopping →" className="btn btn-primary btn-sm" onClick={() => navigate("/shop")} />
+                <div className="profile-form">
+                  <div className="profile-section-head">
+                    <h2 className="profile-section-title">My Orders</h2>
+                    <p className="profile-section-desc">All your recent paint purchases and their live status.</p>
+                  </div>
+                  {loading ? (
+                    <div className="profile-loading-row">
+                      <span className="profile-loading-dot" /><span className="profile-loading-dot" /><span className="profile-loading-dot" />
+                    </div>
+                  ) : userOrders.length === 0 ? (
+                    <div className="profile-empty">
+                      <div className="profile-empty-icon">🛍️</div>
+                      <h4>No orders yet</h4>
+                      <p>Start shopping and your orders will appear here.</p>
+                      <button className="btn btn-primary btn-sm" onClick={() => navigate("/shop")}>Browse Shop →</button>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div className="profile-orders-list">
                       {userOrders.map((ord) => (
-                        <div
-                          key={ord.id || ord.order_number}
-                          style={{
-                            background: "var(--surface)",
-                            border: "1px solid var(--paper-line)",
-                            borderRadius: "var(--r-lg)",
-                            padding: "20px 24px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: "14px",
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                              <strong style={{ fontFamily: "var(--mono)", fontSize: "15px" }}>{ord.order_number || `#${ord.id}`}</strong>
-                              <span className={`status-badge status-${ord.order_status || ord.status || "pending"}`}>
-                                {ord.order_status || ord.status || "pending"}
-                              </span>
-                            </div>
-                            <p style={{ fontSize: "12px", color: "var(--ink-muted)", margin: 0 }}>
-                              Placed on {new Date(ord.created_at || Date.now()).toLocaleDateString()} · Total: <strong>Rs. {Number(ord.total || ord.total_amount || 0).toLocaleString()}</strong>
-                            </p>
-                          </div>
-
-                          <Button
-                            text="Live Track Order →"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => navigate(`/track-order?id=${ord.order_number || ord.id}`)}
-                          />
-                        </div>
+                        <OrderCard key={ord.id || ord.order_number} ord={ord} onTrack={trackOrder} />
                       ))}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* TAB 3: SECURITY & PASSWORD */}
+              {/* ── TAB: SECURITY ── */}
               {activeTab === "security" && (
-                <div>
+                <div className="profile-form">
                   <form onSubmit={handleChangePassword}>
-                    <h3 className="settings-section-title">Change Account Password</h3>
-                    <p className="settings-section-desc">Keep your Drip Paints account secure with a strong password.</p>
-
-                    <div className="settings-form-grid">
+                    <div className="profile-section-head">
+                      <h2 className="profile-section-title">Change Password</h2>
+                      <p className="profile-section-desc">Use a strong password to keep your account secure.</p>
+                    </div>
+                    <div className="profile-grid-2">
                       <div className="login-field">
                         <label>New Password</label>
                         <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" required />
                       </div>
-
                       <div className="login-field">
-                        <label>Confirm New Password</label>
+                        <label>Confirm Password</label>
                         <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" required />
                       </div>
                     </div>
-
-                    <Button text={loading ? "Updating..." : "Update Password"} className="btn btn-primary" />
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                      {loading ? "Updating…" : "Update Password"}
+                    </button>
                   </form>
 
-                  {/* Notification toggles */}
-                  <div style={{ marginTop: "40px", paddingTop: "32px", borderTop: "1px solid var(--paper-line)" }}>
-                    <h3 className="settings-section-title">Email & Push Preferences</h3>
-                    <div className="toggle-group" style={{ marginTop: "16px" }}>
-                      <div className="toggle-item">
-                        <div className="toggle-info">
-                          <strong>Order Status Updates</strong>
-                          <p>Receive real-time alerts when your paint order is approved or shipped.</p>
-                        </div>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={notifyOrders} onChange={(e) => setNotifyOrders(e.target.checked)} />
-                          <span className="toggle-slider" />
-                        </label>
-                      </div>
+                  <div className="profile-divider" />
 
-                      <div className="toggle-item">
-                        <div className="toggle-info">
-                          <strong>Email Invoices</strong>
-                          <p>Receive PDF invoices for every completed order.</p>
-                        </div>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
-                          <span className="toggle-slider" />
-                        </label>
-                      </div>
-
-                      <div className="toggle-item">
-                        <div className="toggle-info">
-                          <strong>Promotions & Swatch Alerts</strong>
-                          <p>Receive seasonal discount codes and color collection previews.</p>
-                        </div>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={notifyOffers} onChange={(e) => setNotifyOffers(e.target.checked)} />
-                          <span className="toggle-slider" />
-                        </label>
-                      </div>
-                    </div>
+                  <div className="profile-section-head">
+                    <h2 className="profile-section-title">Notification Preferences</h2>
+                    <p className="profile-section-desc">Choose what emails you'd like to receive.</p>
+                  </div>
+                  <div className="profile-toggles">
+                    <ToggleRow label="Order Status Updates" desc="Get notified when your order is approved or shipped." checked={notifyOrders} onChange={(e) => setNotifyOrders(e.target.checked)} />
+                    <ToggleRow label="Email Invoices" desc="Receive PDF invoices for every completed order." checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                    <ToggleRow label="Promotions &amp; Offers" desc="Seasonal discount codes and color collection previews." checked={notifyOffers} onChange={(e) => setNotifyOffers(e.target.checked)} />
                   </div>
                 </div>
               )}
 
-              {/* TAB 4: DANGER ZONE / DELETE ACCOUNT */}
+              {/* ── TAB: DANGER ── */}
               {activeTab === "danger" && (
-                <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: "var(--r-xl)", padding: "32px" }}>
-                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "20px" }}>
-                    <div style={{ fontSize: "36px" }}>⚠️</div>
+                <div className="profile-form">
+                  <div className="profile-danger-card">
+                    <div className="profile-danger-icon">🗑️</div>
                     <div>
-                      <h3 style={{ fontFamily: "var(--display)", fontSize: "20px", color: "#991b1b", margin: 0 }}>
-                        Permanently Delete Account
-                      </h3>
-                      <p style={{ fontSize: "14px", color: "#7f1d1d", margin: "6px 0 0", lineHeight: "1.5" }}>
-                        Once you delete your account, there is no going back. All your saved profile details, addresses, wishlist items, and past cart history will be permanently erased.
+                      <h2 className="profile-danger-title">Delete Account Permanently</h2>
+                      <p className="profile-danger-desc">
+                        Once deleted, your profile, addresses, wishlist, order history and all associated data will be <strong>permanently erased</strong> from our servers. This action cannot be undone.
                       </p>
+                      <ul className="profile-danger-list">
+                        <li>❌ All profile information deleted</li>
+                        <li>❌ Wishlist and cart items removed</li>
+                        <li>❌ Order history permanently erased</li>
+                        <li>❌ Account removed from Supabase</li>
+                      </ul>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(""); setError(""); }}
+                        style={{ marginTop: "20px" }}
+                      >
+                        Delete My Account
+                      </button>
                     </div>
-                  </div>
-
-                  <div style={{ paddingTop: "20px", borderTop: "1px solid #fecaca", display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={() => {
-                        setShowDeleteModal(true);
-                        setDeleteConfirmText("");
-                        setError("");
-                      }}
-                    >
-                      🗑️ Delete My Account Permanently
-                    </button>
                   </div>
                 </div>
               )}
-            </main>
+            </section>
           </div>
         </div>
       </main>
 
-      {/* DELETE ACCOUNT CONFIRMATION MODAL */}
+      {/* ── Delete Confirm Modal ── */}
       {showDeleteModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-        >
-          <div
-            style={{
-              background: "var(--surface)",
-              borderRadius: "var(--r-xl)",
-              padding: "36px",
-              maxWidth: "480px",
-              width: "100%",
-              boxShadow: "var(--shadow-xl)",
-              border: "1px solid var(--paper-line)",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: "48px", marginBottom: "12px" }}>🚨</div>
-            <h3 style={{ fontFamily: "var(--display)", fontSize: "22px", fontWeight: "700", marginBottom: "8px", color: "var(--poppy)" }}>
-              Are you absolutely sure?
-            </h3>
-            <p style={{ fontSize: "14px", color: "var(--ink-soft)", marginBottom: "20px", lineHeight: "1.5" }}>
-              This action cannot be undone. This will permanently delete your account (<strong>{user?.email || "Current Account"}</strong>) and all associated data.
+        <div className="profile-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteModal(false); }}>
+          <div className="profile-modal">
+            <div className="profile-modal-icon">🚨</div>
+            <h3 className="profile-modal-title">Permanently Delete Account?</h3>
+            <p className="profile-modal-desc">
+              This will permanently delete <strong>{user?.email}</strong> and all associated data from Supabase. This action is <strong>irreversible</strong>.
             </p>
-
-            <div style={{ background: "var(--canvas-dark)", padding: "16px", borderRadius: "8px", marginBottom: "20px", textAlign: "left" }}>
-              <label style={{ fontSize: "12px", fontWeight: "700", fontFamily: "var(--mono)", color: "var(--ink-muted)", display: "block", marginBottom: "6px" }}>
-                Type <strong style={{ color: "var(--poppy)" }}>DELETE</strong> below to confirm:
-              </label>
+            <div className="profile-modal-confirm-field">
+              <label>Type <strong style={{ color: "#dc2626" }}>DELETE</strong> to confirm</label>
               <input
                 type="text"
-                placeholder="Type DELETE"
+                placeholder="DELETE"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--paper-line)",
-                  fontFamily: "var(--mono)",
-                  fontWeight: "700",
-                  fontSize: "14px",
-                }}
+                autoFocus
               />
             </div>
-
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            {error && <p style={{ color: "#dc2626", fontSize: "13px", marginBottom: "12px" }}>⚠ {error}</p>}
+            <div className="profile-modal-actions">
+              <button className="btn btn-ghost" onClick={() => setShowDeleteModal(false)} disabled={deleteLoading}>Cancel</button>
               <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={deleteLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
                 className="btn btn-danger"
                 onClick={handleDeleteAccount}
                 disabled={deleteLoading || deleteConfirmText.trim().toUpperCase() !== "DELETE"}
               >
-                {deleteLoading ? "Deleting Account..." : "Yes, Delete Account Permanently"}
+                {deleteLoading ? "Deleting…" : "Yes, Delete Forever"}
               </button>
             </div>
           </div>
