@@ -68,6 +68,34 @@ export default function ProductsSection({
       }
     }
     fetchProducts();
+
+    // Listen to real-time stock reduction broadcasts
+    let channel;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        channel = new BroadcastChannel("drip_orders_realtime");
+        channel.onmessage = (event) => {
+          if (event.data?.type === "PRODUCT_STOCK_DEDUCTED") {
+            const { productId, quantityDeducted } = event.data.payload;
+            setProducts((prev) =>
+              prev.map((p) => {
+                if (String(p.id) === String(productId)) {
+                  const curr = typeof p.stock === "number" ? p.stock : 50;
+                  return { ...p, stock: Math.max(0, curr - quantityDeducted) };
+                }
+                return p;
+              })
+            );
+          }
+        };
+      }
+    } catch (e) {
+      console.warn("BroadcastChannel error:", e.message);
+    }
+
+    return () => {
+      if (channel) channel.close();
+    };
   }, []);
 
   // Filter & sort

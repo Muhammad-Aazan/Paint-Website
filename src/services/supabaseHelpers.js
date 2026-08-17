@@ -396,6 +396,13 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
     }
   }
 
+  // Deduct product stock in Supabase for each ordered item
+  if (cartItems?.length) {
+    deductProductsStock(cartItems).catch((err) =>
+      console.warn("Stock deduction background warning:", err.message)
+    );
+  }
+
   const finalOrder = {
     ...(orderData || orderPayload),
     id: orderData?.id || orderNum,
@@ -418,6 +425,128 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
   broadcastOrderUpdate("ORDER_CREATED", finalOrder);
 
   return finalOrder;
+}
+
+/* ==========================================================================
+   STOCK DEDUCTION HELPER
+   ========================================================================== */
+
+export async function deductProductsStock(cartItems) {
+  if (!cartItems || !cartItems.length) return;
+
+  for (const item of cartItems) {
+    try {
+      // Extract raw ID (e.g. "1-4L-CobaltHour" -> "1", or standard UUID / number)
+      const rawId = String(item.id).split("-")[0];
+      const qtyPurchased = Number(item.quantity) || 1;
+
+      // 1. Try to fetch product from Supabase
+      const { data: prod } = await supabase
+        .from("products")
+        .select("id, stock")
+        .eq("id", rawId)
+        .maybeSingle();
+
+      if (prod) {
+        const currentStock = typeof prod.stock === "number" ? prod.stock : 50;
+        const newStock = Math.max(0, currentStock - qtyPurchased);
+        await supabase
+          .from("products")
+          .update({ stock: newStock })
+          .eq("id", rawId);
+      }
+
+      // 2. Broadcast stock change to open tabs so UI updates instantly
+      broadcastOrderUpdate("PRODUCT_STOCK_DEDUCTED", {
+        productId: rawId,
+        quantityDeducted: qtyPurchased,
+      });
+    } catch (err) {
+      console.warn("Error deducting stock for item:", item.name, err.message);
+    }
+  }
+}
+
+/* ==========================================================================
+   CUSTOMER REVIEWS & FEEDBACK HELPERS
+   ========================================================================== */
+
+export async function fetchProductReviews(productId) {
+  const rawId = String(productId).split("-")[0];
+  try {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("product_id", rawId)
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      return data;
+    }
+  } catch (e) {
+    console.warn("fetchProductReviews remote query warning:", e.message);
+  }
+
+  // Fallback to locally stored reviews for this product
+  try {
+    const local = JSON.parse(localStorage.getItem(`drip_reviews_${rawId}`) || "[]");
+    return local;
+  } catch {
+    return [];
+  }
+}
+
+export async function submitProductReview(productId, { author, rating, comment, userId, verified = true }) {
+  const rawId = String(productId).split("-")[0];
+  const newReview = {
+    id: generateValidUuid(),
+    product_id: rawId,
+    user_id: userId ? toValidUuid(userId) : null,
+    author: author || "Verified Customer",
+    rating: Number(rating) || 5,
+    comment: comment || "",
+    verified: Boolean(verified),
+    created_at: new Date().toISOString(),
+  };
+
+  let savedReview = newReview;
+
+  try {
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert(newReview)
+      .select()
+      .single();
+
+    if (!error && data) {
+      savedReview = data;
+    }
+  } catch (err) {
+    console.warn("submitProductReview remote insert warning:", err.message);
+  }
+
+  // Save to local cache so user sees it persistently
+  try {
+    const key = `drip_reviews_${rawId}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const updated = [savedReview, ...existing.filter((r) => r.id !== savedReview.id)];
+    localStorage.setItem(key, JSON.stringify(updated));
+
+    // Update aggregate product reviews count in Supabase products table
+    const allRev = updated;
+    const avgScore = allRev.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / allRev.length;
+    await supabase
+      .from("products")
+      .update({
+        rating: Math.round(avgScore),
+        reviews_count: allRev.length,
+      })
+      .eq("id", rawId);
+  } catch (e) {
+    console.warn("Local review storage update:", e.message);
+  }
+
+  return savedReview;
 }
 
 /* ==========================================================================
@@ -539,6 +668,8 @@ export async function createProduct(product) {
   const payload = {
     name: product.name,
     slug,
+    category: product.category || "Interior Paint",
+    unit: product.unit || "/ gallon",
     description: product.description || "",
     price: Number(product.price) || 0,
     stock: Number(product.stock) || 0,
@@ -558,11 +689,14 @@ export async function updateProduct(id, updates) {
     updated_at: new Date().toISOString(),
   };
   if (updates.name) payload.name = updates.name;
+  if (updates.category) payload.category = updates.category;
+  if (updates.unit) payload.unit = updates.unit;
   if (updates.price !== undefined) payload.price = Number(updates.price) || 0;
   if (updates.stock !== undefined) payload.stock = Number(updates.stock) || 0;
   if (updates.image_url) payload.image_url = updates.image_url;
   if (updates.description !== undefined) payload.description = updates.description;
   if (updates.reviews !== undefined) payload.reviews_count = Number(updates.reviews) || 0;
+  if (updates.rating !== undefined) payload.rating = Number(updates.rating) || 5;
 
   const { data, error } = await supabase.from("products").update(payload).eq("id", id).select().single();
   if (error) throw error;

@@ -502,21 +502,39 @@ export default function Admin() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-                {productsList.map((prod) => (
-                  <div key={prod.id} className="product-card" style={{ padding: "16px" }}>
-                    <img src={prod.image_url || prod.image} alt={prod.name} style={{ width: "100%", height: "160px", objectFit: "contain", borderRadius: "8px", marginBottom: "12px", background: "var(--canvas-dark)" }} />
-                    <span className="product-card-cat">{prod.category || prod.category_name}</span>
-                    <h4 style={{ fontFamily: "var(--display)", fontSize: "16px", margin: "4px 0" }}>{prod.name}</h4>
-                    <p style={{ fontFamily: "var(--ui)", fontWeight: "700", fontSize: "16px", color: "var(--cobalt)" }}>
-                      Rs. {typeof prod.price === "number" ? prod.price.toLocaleString() : prod.price} <span style={{ fontSize: "12px", color: "var(--ink-muted)", fontWeight: "400" }}>{prod.unit}</span>
-                    </p>
+                {productsList.map((prod) => {
+                  const stockNum = typeof prod.stock === "number" ? prod.stock : 50;
+                  const isOut = stockNum <= 0;
+                  const isLow = stockNum > 0 && stockNum <= 5;
 
-                    <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-                      <button onClick={() => openEditProductModal(prod)} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Edit</button>
-                      <button onClick={() => handleDeleteProduct(prod.id)} className="btn btn-danger btn-sm" style={{ flex: 1 }}>Delete</button>
+                  return (
+                    <div key={prod.id} className="product-card" style={{ padding: "16px" }}>
+                      <img src={prod.image_url || prod.image} alt={prod.name} style={{ width: "100%", height: "160px", objectFit: "contain", borderRadius: "8px", marginBottom: "12px", background: "var(--canvas-dark)" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                        <span className="product-card-cat">{prod.category || prod.category_name}</span>
+                        <span style={{
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          padding: "2px 8px",
+                          borderRadius: "99px",
+                          background: isOut ? "#fee2e2" : isLow ? "#fef3c7" : "#ecfdf5",
+                          color: isOut ? "#991b1b" : isLow ? "#92400e" : "#047857",
+                        }}>
+                          {isOut ? "Out of Stock (0)" : `Stock: ${stockNum}`}
+                        </span>
+                      </div>
+                      <h4 style={{ fontFamily: "var(--display)", fontSize: "16px", margin: "4px 0" }}>{prod.name}</h4>
+                      <p style={{ fontFamily: "var(--ui)", fontWeight: "700", fontSize: "16px", color: "var(--cobalt)" }}>
+                        Rs. {typeof prod.price === "number" ? prod.price.toLocaleString() : prod.price} <span style={{ fontSize: "12px", color: "var(--ink-muted)", fontWeight: "400" }}>{prod.unit}</span>
+                      </p>
+
+                      <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                        <button onClick={() => openEditProductModal(prod)} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Edit</button>
+                        <button onClick={() => handleDeleteProduct(prod.id)} className="btn btn-danger btn-sm" style={{ flex: 1 }}>Delete</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1019,7 +1037,32 @@ export default function Admin() {
 
                 <div className="login-field">
                   <label>Price (Rs.)</label>
-                  <input type="number" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} required />
+                  <input type="number" min="0" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} required />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div className="login-field">
+                  <label>Stock Quantity (Units Available)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })}
+                    required
+                    placeholder="e.g. 50 (0 = Out of Stock)"
+                  />
+                </div>
+
+                <div className="login-field">
+                  <label>Unit Label</label>
+                  <select value={productForm.unit} onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}>
+                    <option value="/ gallon">/ gallon</option>
+                    <option value="/ piece">/ piece</option>
+                    <option value="/ liter">/ liter</option>
+                    <option value="/ drum">/ drum</option>
+                    <option value="/ set">/ set</option>
+                  </select>
                 </div>
               </div>
 
