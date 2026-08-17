@@ -562,6 +562,24 @@ export default function TrackOrder() {
                         <strong>{activeOrder.shipping_address}, {activeOrder.city}</strong>
                       </div>
                       <div className="track-info-row">
+                        <span>Delivery Speed:</span>
+                        <div>
+                          {activeOrder.delivery_speed === "urgent" ? (
+                            <span style={{ fontSize: "12px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: "#fee2e2", color: "#991b1b" }}>
+                              ⚡ Urgent Rush (Under 24 Hours)
+                            </span>
+                          ) : activeOrder.delivery_speed === "fast" ? (
+                            <span style={{ fontSize: "12px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: "#e0e7ff", color: "#3730a3" }}>
+                              🚀 Fast Express (1–2 Days)
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "12px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: "#ecfdf5", color: "#047857" }}>
+                              🚚 Standard (3–5 Days)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="track-info-row">
                         <span>Payment Method:</span>
                         <strong>{activeOrder.payment_method || "Cash on Delivery"}</strong>
                       </div>
@@ -595,9 +613,17 @@ export default function TrackOrder() {
                         <span>Rs. {(activeOrder.subtotal || activeOrder.total || 0).toLocaleString()}</span>
                       </div>
                       <div className="track-total-row">
-                        <span>Shipping:</span>
-                        <span style={{ color: "var(--sage)", fontWeight: "600" }}>Free Express Delivery</span>
+                        <span>Shipping ({activeOrder.delivery_speed === "urgent" ? "Urgent ⚡" : activeOrder.delivery_speed === "fast" ? "Fast 🚀" : "Standard 🚚"}):</span>
+                        <span style={{ color: Number(activeOrder.shipping || 0) === 0 ? "var(--sage)" : "var(--ink)", fontWeight: "600" }}>
+                          {Number(activeOrder.shipping || 0) === 0 ? "FREE" : `Rs. ${Number(activeOrder.shipping).toLocaleString()}`}
+                        </span>
                       </div>
+                      {Number(activeOrder.discount || 0) > 0 && (
+                        <div className="track-total-row" style={{ color: "var(--sage)", fontWeight: "600" }}>
+                          <span>Promo Discount:</span>
+                          <span>-Rs. {Number(activeOrder.discount).toLocaleString()}</span>
+                        </div>
+                      )}
                       <div className="track-total-row grand">
                         <span>Total Amount:</span>
                         <span>Rs. {(activeOrder.total || 0).toLocaleString()}</span>

@@ -346,13 +346,17 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
   const orderNum = "DRIP-" + Math.floor(100000 + Math.random() * 900000);
   const targetUserId = isUuid(userId) ? userId : null;
 
+  const shippingFee = Number(shippingDetails.shippingFee) || 0;
+  const deliverySpeed = shippingDetails.shippingSpeed || "standard";
+
   const orderPayload = {
     user_id: targetUserId,
     order_number: orderNum,
-    subtotal: totalAmount,
-    shipping: 0,
+    subtotal: totalAmount - shippingFee,
+    shipping: shippingFee,
     discount: shippingDetails.discount || 0,
     total: totalAmount,
+    delivery_speed: deliverySpeed,
     payment_method: shippingDetails.paymentMethod || "cod",
     payment_status: "pending",
     order_status: "pending", // Initial state is pending approval

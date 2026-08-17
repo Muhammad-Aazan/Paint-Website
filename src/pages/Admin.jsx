@@ -589,9 +589,24 @@ export default function Admin() {
                             </td>
                             <td>
                               <strong>{ord.recipient_name || ord.shipping_address?.split(",")[0] || "Customer"}</strong>
-                              <p style={{ fontSize: "12px", color: "var(--ink-muted)", margin: 0 }}>
+                              <p style={{ fontSize: "12px", color: "var(--ink-muted)", margin: "2px 0 4px" }}>
                                 {ord.city || "Karachi"} {ord.phone ? `· ${ord.phone}` : ""}
                               </p>
+                              <div>
+                                {ord.delivery_speed === "urgent" ? (
+                                  <span style={{ fontSize: "10.5px", fontWeight: "800", padding: "2px 6px", borderRadius: "4px", background: "#fee2e2", color: "#991b1b" }}>
+                                    ⚡ URGENT RUSH
+                                  </span>
+                                ) : ord.delivery_speed === "fast" ? (
+                                  <span style={{ fontSize: "10.5px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "#e0e7ff", color: "#3730a3" }}>
+                                    🚀 FAST EXPRESS
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: "10.5px", color: "var(--ink-muted)" }}>
+                                    🚚 Standard
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td>{new Date(ord.created_at || Date.now()).toLocaleDateString()}</td>
                             <td style={{ fontWeight: "700", color: "var(--cobalt)" }}>

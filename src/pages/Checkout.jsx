@@ -28,6 +28,39 @@ export default function Checkout() {
   const [appliedPromo, setAppliedPromo] = useState(initialPromo);
   const [promoError, setPromoError] = useState("");
 
+  // Delivery Speed State
+  const [deliverySpeed, setDeliverySpeed] = useState("standard"); // 'standard' | 'fast' | 'urgent'
+
+  const deliveryOptions = [
+    {
+      id: "standard",
+      name: "Standard Ground Delivery",
+      icon: "🚚",
+      time: "3 – 5 Business Days",
+      price: 0,
+      badge: "FREE",
+      desc: "Safe nationwide logistics across all cities in Pakistan.",
+    },
+    {
+      id: "fast",
+      name: "Fast Express Delivery",
+      icon: "🚀",
+      time: "1 – 2 Business Days",
+      price: 250,
+      badge: "Rs. 250",
+      desc: "Priority courier dispatch for prompt project timelines.",
+    },
+    {
+      id: "urgent",
+      name: "Urgent Same-Day / 24h Rush",
+      icon: "⚡",
+      time: "Under 24 Hours",
+      price: 600,
+      badge: "Rs. 600",
+      desc: "Immediate paint mixing & express direct courier rush delivery.",
+    },
+  ];
+
   // Form State
   const [shipping, setShipping] = useState({
     fullName: user?.user_metadata?.full_name || "",
@@ -45,11 +78,14 @@ export default function Checkout() {
     return Number(String(item.price || 0).replace(/[^0-9.-]+/g, "")) || 0;
   };
 
+  const selectedDelivery = deliveryOptions.find((d) => d.id === deliverySpeed) || deliveryOptions[0];
+  const shippingFee = selectedDelivery.price;
+
   const subtotal = cart.reduce((s, it) => s + getPrice(it) * (it.quantity || 1), 0);
   const discount = appliedDiscount;
   const taxableAmount = Math.max(0, subtotal - discount);
   const tax = taxableAmount * 0.05;
-  const grandTotal = taxableAmount + tax;
+  const grandTotal = taxableAmount + tax + shippingFee;
 
   const fmt = (n) => `Rs. ${Number(n).toLocaleString()}`;
 
@@ -88,6 +124,9 @@ export default function Checkout() {
         city: shipping.city,
         address: shipping.address,
         notes: shipping.notes,
+        shippingSpeed: deliverySpeed,
+        shippingFee: shippingFee,
+        discount: discount,
         paymentMethod: paymentMethod === "cod" ? "Cash on Delivery" : "Credit / Debit Card",
       });
 
@@ -260,9 +299,80 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                {/* Step 2: Payment Method */}
+                {/* Step 2: Choose Delivery Speed */}
                 <div className="checkout-section">
-                  <h3>2. Payment Method</h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ margin: 0 }}>2. Choose Delivery Speed</h3>
+                    <span style={{ fontSize: "12px", fontFamily: "var(--mono)", color: "var(--cobalt)", fontWeight: "700" }}>
+                      {selectedDelivery.name}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {deliveryOptions.map((opt) => {
+                      const isSelected = deliverySpeed === opt.id;
+                      return (
+                        <label
+                          key={opt.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "16px",
+                            padding: "16px 20px",
+                            borderRadius: "var(--r-lg)",
+                            border: isSelected ? "2px solid var(--cobalt)" : "1.5px solid var(--paper-line)",
+                            background: isSelected ? "var(--cobalt-glow)" : "var(--surface)",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            boxShadow: isSelected ? "0 4px 14px rgba(30, 61, 110, 0.08)" : "none",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                            <input
+                              type="radio"
+                              name="deliverySpeed"
+                              checked={isSelected}
+                              onChange={() => setDeliverySpeed(opt.id)}
+                            />
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                                <span style={{ fontSize: "20px" }}>{opt.icon}</span>
+                                <strong style={{ fontSize: "15px", color: "var(--ink)" }}>{opt.name}</strong>
+                                <span style={{
+                                  fontSize: "11px",
+                                  fontWeight: "700",
+                                  padding: "2px 8px",
+                                  borderRadius: "99px",
+                                  background: opt.id === "urgent" ? "#fee2e2" : opt.id === "fast" ? "#e0e7ff" : "#ecfdf5",
+                                  color: opt.id === "urgent" ? "#991b1b" : opt.id === "fast" ? "#3730a3" : "#047857",
+                                }}>
+                                  {opt.time}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: "12.5px", color: "var(--ink-soft)" }}>{opt.desc}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <strong style={{
+                              fontFamily: "var(--ui)",
+                              fontSize: "15px",
+                              color: opt.price === 0 ? "var(--sage)" : "var(--ink)",
+                              display: "block"
+                            }}>
+                              {opt.badge}
+                            </strong>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 3: Payment Method */}
+                <div className="checkout-section">
+                  <h3>3. Payment Method</h3>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <label style={{
@@ -307,7 +417,7 @@ export default function Checkout() {
                       />
                       <div>
                         <strong style={{ display: "block", fontSize: "15px" }}>💳 Credit / Debit Card (Online)</strong>
-                        <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>Visa, MasterCard, UnionPay, & JazzCash / EasyPaisa.</span>
+                        <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>Visa, MasterCard, UnionPay, &amp; JazzCash / EasyPaisa.</span>
                       </div>
                     </label>
                   </div>
@@ -376,8 +486,10 @@ export default function Checkout() {
                     <span>{fmt(tax)}</span>
                   </div>
                   <div className="summary-row">
-                    <span>Nationwide Express Delivery</span>
-                    <span style={{ color: "var(--sage)", fontWeight: "700" }}>FREE</span>
+                    <span>Delivery Speed</span>
+                    <span style={{ fontWeight: "600" }}>
+                      {selectedDelivery.icon} {selectedDelivery.name.split(" ")[0]} ({shippingFee === 0 ? "FREE" : fmt(shippingFee)})
+                    </span>
                   </div>
                   <div className="summary-row total">
                     <span>Total Amount</span>
@@ -392,7 +504,7 @@ export default function Checkout() {
                 />
 
                 <p style={{ fontSize: "12px", color: "var(--ink-muted)", textAlign: "center", marginTop: "16px" }}>
-                  🔒 Guaranteed safe & secure checkout
+                  🔒 Guaranteed safe &amp; secure checkout
                 </p>
               </aside>
             </form>
