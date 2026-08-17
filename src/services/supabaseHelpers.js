@@ -123,6 +123,40 @@ export async function changeUserPassword(newPassword) {
   return data;
 }
 
+export async function deleteUserAccountPermanently(userId) {
+  if (userId) {
+    try {
+      await supabase.from("wishlist").delete().eq("user_id", userId);
+    } catch (e) {
+      console.warn("Wishlist cleanup:", e.message);
+    }
+    try {
+      await supabase.from("carts").delete().eq("user_id", userId);
+    } catch (e) {
+      console.warn("Cart cleanup:", e.message);
+    }
+    try {
+      await supabase.from("profiles").delete().eq("id", userId);
+    } catch (e) {
+      console.warn("Profile cleanup:", e.message);
+    }
+  }
+
+  try {
+    await supabase.auth.signOut();
+  } catch (e) {
+    console.warn("Sign out:", e.message);
+  }
+
+  // Clear client storage
+  localStorage.removeItem("drip_admin_auth");
+  localStorage.removeItem("drip_guest_uuid");
+  localStorage.removeItem("drip_custom_admin_passcode");
+  localStorage.removeItem("persist:root");
+
+  return true;
+}
+
 /* ==========================================================================
    WISHLIST HELPERS
    ========================================================================== */
@@ -278,6 +312,18 @@ export async function getCartFromSupabase(userId) {
    ORDERS HELPERS (Matched to User Schema)
    ========================================================================== */
 
+// Helper to broadcast order updates across tabs in real-time
+function broadcastOrderUpdate(type, payload) {
+  try {
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      const channel = new BroadcastChannel("drip_orders_realtime");
+      channel.postMessage({ type, payload, timestamp: Date.now() });
+    }
+  } catch (e) {
+    console.warn("Broadcast warning:", e.message);
+  }
+}
+
 export async function createOrderInSupabase(userId, cartItems, totalAmount, shippingDetails = {}) {
   const orderNum = "DRIP-" + Math.floor(100000 + Math.random() * 900000);
   const targetUserId = isUuid(userId) ? userId : null;
@@ -287,15 +333,18 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
     order_number: orderNum,
     subtotal: totalAmount,
     shipping: 0,
-    discount: 0,
+    discount: shippingDetails.discount || 0,
     total: totalAmount,
     payment_method: shippingDetails.paymentMethod || "cod",
     payment_status: "pending",
-    order_status: "pending",
+    order_status: "pending", // Initial state is pending approval
     shipping_address: shippingDetails.address || "",
     city: shippingDetails.city || "Karachi",
     postal_code: shippingDetails.postalCode || "",
     notes: shippingDetails.notes || "",
+    recipient_name: shippingDetails.fullName || "Valued Customer",
+    phone: shippingDetails.phone || "",
+    created_at: new Date().toISOString(),
   };
 
   let orderData = null;
@@ -307,13 +356,14 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
       .select()
       .single();
 
-    if (error) throw error;
-    orderData = data;
+    if (!error && data) {
+      orderData = data;
+    }
   } catch (err) {
-    console.warn("createOrderInSupabase error:", err.message);
+    console.warn("createOrderInSupabase remote error:", err.message);
   }
 
-  // Insert into order_items (matched to order_id, product_id, quantity, price)
+  // Insert into order_items
   if (orderData?.id && cartItems?.length) {
     try {
       const orderItems = cartItems.map((item) => ({
@@ -328,7 +378,28 @@ export async function createOrderInSupabase(userId, cartItems, totalAmount, ship
     }
   }
 
-  return orderData || { id: orderNum, order_number: orderNum, total: totalAmount, order_status: "pending" };
+  const finalOrder = {
+    ...(orderData || orderPayload),
+    id: orderData?.id || orderNum,
+    order_number: orderData?.order_number || orderNum,
+    order_status: "pending",
+    items: cartItems,
+    created_at: orderPayload.created_at,
+  };
+
+  // Sync to local orders cache for instant offline / real-time reflection
+  try {
+    const localDb = JSON.parse(localStorage.getItem("drip_orders_db") || "[]");
+    const updatedDb = [finalOrder, ...localDb.filter((o) => o.order_number !== orderNum && o.id !== finalOrder.id)];
+    localStorage.setItem("drip_orders_db", JSON.stringify(updatedDb));
+  } catch (e) {
+    console.warn("Local orders cache error:", e.message);
+  }
+
+  // Broadcast creation to open tabs (Admin & Tracker)
+  broadcastOrderUpdate("ORDER_CREATED", finalOrder);
+
+  return finalOrder;
 }
 
 /* ==========================================================================
@@ -487,40 +558,90 @@ export async function deleteProduct(id) {
 }
 
 export async function fetchAllOrders() {
+  let remoteOrders = [];
   try {
     const { data: orders, error } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (!error && orders) {
+      remoteOrders = orders.map((o) => ({
+        ...o,
+        status: o.order_status || o.status || "pending",
+        order_status: o.order_status || o.status || "pending",
+        total_amount: o.total || o.total_amount || 0,
+        order_number: o.order_number || `#${String(o.id).slice(0, 8)}`,
+      }));
+    }
+  } catch (err) {
+    console.warn("fetchAllOrders remote error:", err.message);
+  }
 
-    return (orders || []).map((o) => ({
+  // Merge with local orders
+  try {
+    const localDb = JSON.parse(localStorage.getItem("drip_orders_db") || "[]");
+    const mergedMap = new Map();
+    // Put remote first
+    remoteOrders.forEach((o) => mergedMap.set(String(o.order_number || o.id), o));
+    // Overlay local (or add new local orders)
+    localDb.forEach((o) => {
+      const key = String(o.order_number || o.id);
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, o);
+      } else {
+        // If local has more recent status update
+        const existing = mergedMap.get(key);
+        mergedMap.set(key, { ...existing, ...o, status: o.order_status || o.status || existing.status });
+      }
+    });
+
+    const result = Array.from(mergedMap.values()).map((o) => ({
       ...o,
       status: o.order_status || o.status || "pending",
+      order_status: o.order_status || o.status || "pending",
       total_amount: o.total || o.total_amount || 0,
       order_number: o.order_number || `#${String(o.id).slice(0, 8)}`,
     }));
-  } catch (err) {
-    console.warn("fetchAllOrders error:", err.message);
-    return [];
+
+    return result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  } catch {
+    return remoteOrders;
   }
 }
 
 export async function updateOrderStatus(orderId, status) {
+  let updatedRemote = null;
   try {
     const { data, error } = await supabase
       .from("orders")
       .update({ order_status: status })
-      .eq("id", orderId)
+      .or(`id.eq.${orderId.length === 36 ? orderId : "00000000-0000-0000-0000-000000000000"},order_number.eq.${orderId}`)
       .select();
 
-    if (error) throw error;
-    return data;
+    if (!error) updatedRemote = data;
   } catch (err) {
-    console.warn("updateOrderStatus error:", err.message);
-    return null;
+    console.warn("updateOrderStatus remote error:", err.message);
   }
+
+  // Update local storage
+  try {
+    const localDb = JSON.parse(localStorage.getItem("drip_orders_db") || "[]");
+    const updatedDb = localDb.map((ord) => {
+      if (String(ord.id) === String(orderId) || String(ord.order_number) === String(orderId)) {
+        return { ...ord, order_status: status, status };
+      }
+      return ord;
+    });
+    localStorage.setItem("drip_orders_db", JSON.stringify(updatedDb));
+  } catch (e) {
+    console.warn("Local storage update error:", e.message);
+  }
+
+  // Broadcast the update event in real-time
+  broadcastOrderUpdate("ORDER_STATUS_CHANGED", { orderId, status });
+
+  return updatedRemote || { id: orderId, order_status: status };
 }
 
 export async function fetchAllProfiles() {

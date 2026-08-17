@@ -11,6 +11,7 @@ import {
   setCart,
 } from "@/features/cart/cartSlice";
 import { getCartFromSupabase, syncCartToSupabase } from "@/services/supabaseHelpers";
+import { validateAndApplyCoupon } from "@/services/couponHelpers";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -52,6 +53,36 @@ export default function Cart() {
 
   const subtotal = cart.reduce((s, it) => s + getPrice(it) * (it.quantity || 1), 0);
   const fmt = (n) => `Rs. ${Number(n).toLocaleString()}`;
+
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [appliedCode, setAppliedCode] = useState("");
+  const [promoError, setPromoError] = useState("");
+
+  const handleApplyPromo = (e) => {
+    e.preventDefault();
+    setPromoError("");
+    const result = validateAndApplyCoupon(promoCode, subtotal);
+
+    if (result.isValid) {
+      setAppliedDiscount(result.discountAmount);
+      setAppliedCode(result.label);
+      setPromoCode("");
+    } else {
+      setPromoError(result.error);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedDiscount(0);
+    setAppliedCode("");
+    setPromoError("");
+  };
+
+  const discountAmount = appliedDiscount;
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const tax = taxableAmount * 0.05;
+  const finalTotal = taxableAmount + tax;
 
   return (
     <>
@@ -167,24 +198,59 @@ export default function Cart() {
                   <span>Subtotal ({cart.reduce((s, it) => s + it.quantity, 0)} items)</span>
                   <span>{fmt(subtotal)}</span>
                 </div>
+
+                {appliedDiscount > 0 && (
+                  <div className="summary-row" style={{ color: "var(--sage)", fontWeight: "600" }}>
+                    <span>Promo Discount ({appliedCode})</span>
+                    <span>-{fmt(appliedDiscount)}</span>
+                  </div>
+                )}
+
                 <div className="summary-row">
                   <span>Shipping</span>
-                  <span style={{ color: "var(--sage)", fontWeight: "600" }}>Free</span>
+                  <span style={{ color: "var(--sage)", fontWeight: "600" }}>Free Express</span>
                 </div>
                 <div className="summary-row">
-                  <span>Tax (est.)</span>
-                  <span>{fmt(subtotal * 0.05)}</span>
+                  <span>Tax (est. 5%)</span>
+                  <span>{fmt(tax)}</span>
                 </div>
                 <div className="summary-row total">
                   <span>Total</span>
-                  <span>{fmt(subtotal + subtotal * 0.05)}</span>
+                  <span>{fmt(finalTotal)}</span>
+                </div>
+
+                {/* Promo Code Input */}
+                <div className="cart-promo-box" style={{ marginTop: "20px" }}>
+                  {appliedCode ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 14px", borderRadius: "var(--r-md)", fontSize: "13px" }}>
+                      <span style={{ color: "#166534", fontWeight: "600" }}>✓ {appliedCode} Applied</span>
+                      <button type="button" onClick={handleRemovePromo} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontWeight: "700" }}>✕ Remove</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyPromo} style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        placeholder="Coupon code (e.g. DRIP10)"
+                        className="form-input"
+                        style={{ padding: "8px 12px", fontSize: "13px", margin: 0, textTransform: "uppercase" }}
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                      />
+                      <button type="submit" className="btn btn-ghost btn-sm" style={{ whiteSpace: "nowrap" }}>
+                        Apply
+                      </button>
+                    </form>
+                  )}
+                  {promoError && (
+                    <p style={{ color: "var(--poppy)", fontSize: "12px", marginTop: "6px" }}>{promoError}</p>
+                  )}
                 </div>
 
                 <Button
                   text="Proceed to Checkout →"
                   className="btn btn-primary"
                   style={{ width: "100%", marginTop: "20px" }}
-                  onClick={() => isAuthenticated ? navigate("/checkout") : navigate("/login")}
+                  onClick={() => isAuthenticated ? navigate("/checkout", { state: { discount: appliedDiscount, promo: appliedCode } }) : navigate("/login")}
                 />
                 <Button
                   text="Continue Shopping"

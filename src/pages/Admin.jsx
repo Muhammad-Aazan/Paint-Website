@@ -16,6 +16,7 @@ import {
   uploadFileToBucket,
 } from "@/services/supabaseHelpers";
 import { supabase } from "@/services/supabase";
+import { getAllCoupons, saveCoupon, deleteCoupon, toggleCouponStatus } from "@/services/couponHelpers";
 
 export default function Admin() {
   const { user } = useSelector((state) => state.auth);
@@ -47,6 +48,17 @@ export default function Admin() {
     totalInquiries: 0,
     totalBookings: 0,
   });
+
+  // Coupon Manager State
+  const [couponsList, setCouponsList] = useState([]);
+  const [couponForm, setCouponForm] = useState({
+    code: "",
+    type: "percentage",
+    value: "",
+    minSpend: "",
+    description: "",
+  });
+  const [couponError, setCouponError] = useState("");
 
   // Data Lists
   const [productsList, setProductsList] = useState([]);
@@ -97,11 +109,44 @@ export default function Admin() {
     setMessage("Admin System Settings saved successfully!");
   }
 
-  // Load Data
+  // Load Data & setup real-time listener
   useEffect(() => {
-    if (isAdminAuthenticated) {
-      loadAllData();
+    if (!isAdminAuthenticated) return;
+    loadAllData();
+
+    // 1. BroadcastChannel listener for real-time order notifications
+    let bc = null;
+    try {
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("drip_orders_realtime");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "ORDER_CREATED" || event.data?.type === "ORDER_STATUS_CHANGED") {
+            loadAllData();
+          }
+        };
+      }
+    } catch (e) {
+      console.warn("Admin Broadcast error:", e);
     }
+
+    // 2. Local storage event listener
+    const handleStorage = (e) => {
+      if (e.key === "drip_orders_db") {
+        loadAllData();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    // 3. Periodic poll every 3 seconds for continuous live syncing
+    const interval = setInterval(() => {
+      fetchAllOrders().then((data) => setOrdersList(data));
+    }, 3000);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+    };
   }, [isAdminAuthenticated]);
 
   async function loadAllData() {
@@ -366,6 +411,13 @@ export default function Admin() {
               📦 Orders ({ordersList.length})
             </button>
             <button
+              className={`admin-tab-btn ${activeTab === "coupons" ? "active" : ""}`}
+              onClick={() => { setActiveTab("coupons"); setCouponsList(getAllCoupons()); }}
+              style={activeTab === "coupons" ? {} : {}}
+            >
+              🎟️ Coupons ({couponsList.length || getAllCoupons().length})
+            </button>
+            <button
               className={`admin-tab-btn ${activeTab === "users" ? "active" : ""}`}
               onClick={() => setActiveTab("users")}
             >
@@ -375,13 +427,13 @@ export default function Admin() {
               className={`admin-tab-btn ${activeTab === "requests" ? "active" : ""}`}
               onClick={() => setActiveTab("requests")}
             >
-              📩 Inquiries ({inquiriesList.length}) & 🧹 Bookings ({bookingsList.length})
+              📩 Inquiries & Bookings
             </button>
             <button
               className={`admin-tab-btn ${activeTab === "admin-settings" ? "active" : ""}`}
               onClick={() => setActiveTab("admin-settings")}
             >
-              ⚙️ Admin Settings
+              ⚙️ Settings
             </button>
           </div>
 
@@ -472,41 +524,110 @@ export default function Admin() {
           {/* TAB 3: ORDERS MANAGER */}
           {activeTab === "orders" && (
             <div>
-              <h3 style={{ fontFamily: "var(--display)", fontSize: "20px", marginBottom: "20px" }}>Manage Customer Orders</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+                <div>
+                  <h3 style={{ fontFamily: "var(--display)", fontSize: "20px", margin: 0 }}>Manage Customer Orders</h3>
+                  <p style={{ fontSize: "13px", color: "var(--ink-soft)", margin: "4px 0 0" }}>
+                    Live syncing enabled. Approve new orders to notify customers in real-time.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={loadAllData}
+                >
+                  ↺ Refresh Orders
+                </button>
+              </div>
+
               <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
                       <th>Order ID</th>
-                      <th>Customer ID</th>
+                      <th>Customer & City</th>
                       <th>Date</th>
                       <th>Total Amount</th>
-                      <th>Update Status</th>
+                      <th>Current Status</th>
+                      <th>Actions & Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ordersList.map((ord) => (
-                      <tr key={ord.id}>
-                        <td style={{ fontWeight: "700" }}>#{ord.id}</td>
-                        <td style={{ fontSize: "12px", fontFamily: "var(--mono)", color: "var(--ink-muted)" }}>{ord.user_id}</td>
-                        <td>{new Date(ord.created_at || Date.now()).toLocaleDateString()}</td>
-                        <td style={{ fontWeight: "700", color: "var(--cobalt)" }}>Rs. {Number(ord.total_amount).toLocaleString()}</td>
-                        <td>
-                          <select
-                            value={ord.status || "pending"}
-                            onChange={(e) => handleStatusChange(ord.id, e.target.value)}
-                            className="sort-select"
-                            style={{ padding: "6px 12px", fontSize: "13px" }}
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="shipped">Shipped</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
+                    {ordersList.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: "center", padding: "32px", color: "var(--ink-muted)" }}>
+                          No orders placed yet. Place an order on checkout to test live approval!
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      ordersList.map((ord) => {
+                        const currentStatus = ord.order_status || ord.status || "pending";
+                        const isPending = currentStatus === "pending";
+
+                        return (
+                          <tr key={ord.id || ord.order_number} style={{ background: isPending ? "rgba(212, 136, 42, 0.04)" : "" }}>
+                            <td style={{ fontWeight: "700", fontFamily: "var(--mono)" }}>
+                              {ord.order_number || `#${ord.id}`}
+                            </td>
+                            <td>
+                              <strong>{ord.recipient_name || ord.shipping_address?.split(",")[0] || "Customer"}</strong>
+                              <p style={{ fontSize: "12px", color: "var(--ink-muted)", margin: 0 }}>
+                                {ord.city || "Karachi"} {ord.phone ? `· ${ord.phone}` : ""}
+                              </p>
+                            </td>
+                            <td>{new Date(ord.created_at || Date.now()).toLocaleDateString()}</td>
+                            <td style={{ fontWeight: "700", color: "var(--cobalt)" }}>
+                              Rs. {Number(ord.total || ord.total_amount || 0).toLocaleString()}
+                            </td>
+                            <td>
+                              <span className={`status-badge status-${currentStatus}`}>
+                                {currentStatus === "pending"
+                                  ? "⏳ Awaiting Approval"
+                                  : currentStatus === "confirmed"
+                                  ? "✅ Confirmed"
+                                  : currentStatus === "processing"
+                                  ? "🎨 Mixing / Lab"
+                                  : currentStatus === "shipped"
+                                  ? "📦 Dispatched"
+                                  : currentStatus === "out_for_delivery"
+                                  ? "🚚 Out for Delivery"
+                                  : currentStatus === "delivered"
+                                  ? "🏡 Delivered"
+                                  : "❌ Cancelled"}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                {isPending && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    style={{ background: "var(--sage)", borderColor: "var(--sage)", whiteSpace: "nowrap" }}
+                                    onClick={() => handleStatusChange(ord.id || ord.order_number, "confirmed")}
+                                  >
+                                    ⚡ Approve Order
+                                  </button>
+                                )}
+                                <select
+                                  value={currentStatus}
+                                  onChange={(e) => handleStatusChange(ord.id || ord.order_number, e.target.value)}
+                                  className="sort-select"
+                                  style={{ padding: "6px 12px", fontSize: "13px" }}
+                                >
+                                  <option value="pending">Pending (Awaiting Approval)</option>
+                                  <option value="confirmed">Confirmed (Approved)</option>
+                                  <option value="processing">Processing (Mixing & QC)</option>
+                                  <option value="shipped">Shipped (Dispatched)</option>
+                                  <option value="out_for_delivery">Out for Delivery</option>
+                                  <option value="delivered">Delivered</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -699,6 +820,172 @@ export default function Admin() {
               </form>
             </div>
           )}
+
+          {/* TAB: COUPON MANAGER */}
+          {activeTab === "coupons" && (() => {
+            const coupons = couponsList.length > 0 ? couponsList : getAllCoupons();
+            return (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px", alignItems: "start" }}>
+                  {/* Left: Generate New Coupon Form */}
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--paper-line)", borderRadius: "var(--r-xl)", padding: "28px" }}>
+                    <h3 style={{ fontFamily: "var(--display)", fontSize: "18px", marginBottom: "6px" }}>🎟️ Generate New Coupon</h3>
+                    <p style={{ fontSize: "13px", color: "var(--ink-soft)", marginBottom: "20px" }}>Create a discount code that customers can apply at checkout.</p>
+
+                    {couponError && (
+                      <div style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fca5a5", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", marginBottom: "14px" }}>
+                        ⚠ {couponError}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                      <div className="login-field" style={{ margin: 0 }}>
+                        <label>Coupon Code <span style={{ color: "var(--poppy)", fontSize: "11px" }}>*required, no spaces</span></label>
+                        <input
+                          type="text"
+                          value={couponForm.code}
+                          onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase().replace(/\s/g, "") })}
+                          placeholder="e.g. SUMMER30"
+                          style={{ textTransform: "uppercase", fontFamily: "var(--mono)", fontWeight: "700" }}
+                        />
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                        <div className="login-field" style={{ margin: 0 }}>
+                          <label>Discount Type</label>
+                          <select
+                            value={couponForm.type}
+                            onChange={(e) => setCouponForm({ ...couponForm, type: e.target.value })}
+                            className="sort-select"
+                          >
+                            <option value="percentage">% Percentage Off</option>
+                            <option value="flat">Rs. Flat Amount Off</option>
+                          </select>
+                        </div>
+                        <div className="login-field" style={{ margin: 0 }}>
+                          <label>{couponForm.type === "percentage" ? "Discount %" : "Flat Amount (Rs.)"}</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max={couponForm.type === "percentage" ? "100" : undefined}
+                            value={couponForm.value}
+                            onChange={(e) => setCouponForm({ ...couponForm, value: e.target.value })}
+                            placeholder={couponForm.type === "percentage" ? "e.g. 20" : "e.g. 500"}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="login-field" style={{ margin: 0 }}>
+                        <label>Minimum Cart Value (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={couponForm.minSpend}
+                          onChange={(e) => setCouponForm({ ...couponForm, minSpend: e.target.value })}
+                          placeholder="e.g. 2000 (leave 0 for no minimum)"
+                        />
+                      </div>
+
+                      <div className="login-field" style={{ margin: 0 }}>
+                        <label>Description (shown in cart)</label>
+                        <input
+                          type="text"
+                          value={couponForm.description}
+                          onChange={(e) => setCouponForm({ ...couponForm, description: e.target.value })}
+                          placeholder="e.g. 30% off on all summer collection orders"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                          setCouponError("");
+                          if (!couponForm.code.trim()) return setCouponError("Coupon code is required.");
+                          if (!couponForm.value || Number(couponForm.value) <= 0) return setCouponError("Please enter a valid discount value.");
+                          if (couponForm.type === "percentage" && Number(couponForm.value) > 100) return setCouponError("Percentage cannot exceed 100.");
+                          saveCoupon(couponForm);
+                          setCouponsList(getAllCoupons());
+                          setCouponForm({ code: "", type: "percentage", value: "", minSpend: "", description: "" });
+                          setMessage(`Coupon ${couponForm.code.toUpperCase()} created successfully!`);
+                        }}
+                      >
+                        ✦ Create & Activate Coupon
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: Active Coupons List */}
+                  <div>
+                    <h3 style={{ fontFamily: "var(--display)", fontSize: "18px", marginBottom: "16px" }}>Active Coupon Codes</h3>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {coupons.map((coupon) => (
+                        <div
+                          key={coupon.code}
+                          style={{
+                            background: coupon.isActive ? "var(--surface)" : "var(--canvas-dark)",
+                            border: `1px solid ${coupon.isActive ? "var(--paper-line)" : "#e5e7eb"}`,
+                            borderRadius: "var(--r-lg)",
+                            padding: "16px 20px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "12px",
+                            opacity: coupon.isActive ? 1 : 0.6,
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                              <code style={{ fontFamily: "var(--mono)", fontWeight: "700", fontSize: "15px", color: "var(--cobalt)" }}>{coupon.code}</code>
+                              <span style={{
+                                fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
+                                background: coupon.isActive ? "#f0fdf4" : "#f9fafb",
+                                color: coupon.isActive ? "#166534" : "#6b7280"
+                              }}>
+                                {coupon.isActive ? "✓ Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: "12px", color: "var(--ink-soft)", margin: 0 }}>
+                              {coupon.type === "percentage" ? `${coupon.value}% OFF` : `Rs. ${coupon.value} OFF`}
+                              {coupon.minSpend > 0 ? ` · Min spend Rs. ${Number(coupon.minSpend).toLocaleString()}` : ""}
+                            </p>
+                            {coupon.description && (
+                              <p style={{ fontSize: "11px", color: "var(--ink-muted)", margin: "2px 0 0" }}>{coupon.description}</p>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => { toggleCouponStatus(coupon.code); setCouponsList(getAllCoupons()); }}
+                              title={coupon.isActive ? "Deactivate" : "Activate"}
+                            >
+                              {coupon.isActive ? "⏸ Pause" : "▶ Activate"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fca5a5" }}
+                              onClick={() => {
+                                if (window.confirm(`Delete coupon ${coupon.code}?`)) {
+                                  deleteCoupon(coupon.code);
+                                  setCouponsList(getAllCoupons());
+                                  setMessage(`Coupon ${coupon.code} deleted.`);
+                                }
+                              }}
+                              title="Delete"
+                            >
+                              🗑 Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </section>
 

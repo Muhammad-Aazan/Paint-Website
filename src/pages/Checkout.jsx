@@ -1,21 +1,32 @@
 import React, { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Navbar, Footer, Button } from "@/components";
 import { clearCart } from "@/features/cart/cartSlice";
 import { createOrderInSupabase } from "@/services/supabaseHelpers";
+import { validateAndApplyCoupon } from "@/services/couponHelpers";
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
 
   const cart = useSelector((state) => state.cart.items);
   const { user } = useSelector((state) => state.auth);
 
+  const initialDiscount = location.state?.discount || 0;
+  const initialPromo = location.state?.promo || "";
+
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [error, setError] = useState("");
+
+  // Promo State in Checkout
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(initialDiscount);
+  const [appliedPromo, setAppliedPromo] = useState(initialPromo);
+  const [promoError, setPromoError] = useState("");
 
   // Form State
   const [shipping, setShipping] = useState({
@@ -35,10 +46,31 @@ export default function Checkout() {
   };
 
   const subtotal = cart.reduce((s, it) => s + getPrice(it) * (it.quantity || 1), 0);
-  const tax = subtotal * 0.05;
-  const grandTotal = subtotal + tax;
+  const discount = appliedDiscount;
+  const taxableAmount = Math.max(0, subtotal - discount);
+  const tax = taxableAmount * 0.05;
+  const grandTotal = taxableAmount + tax;
 
   const fmt = (n) => `Rs. ${Number(n).toLocaleString()}`;
+
+  const handleApplyCoupon = (e) => {
+    e.preventDefault();
+    setPromoError("");
+    const result = validateAndApplyCoupon(promoCodeInput, subtotal);
+    if (result.isValid) {
+      setAppliedDiscount(result.discountAmount);
+      setAppliedPromo(result.label);
+      setPromoCodeInput("");
+    } else {
+      setPromoError(result.error);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedDiscount(0);
+    setAppliedPromo("");
+    setPromoError("");
+  };
 
   async function handlePlaceOrder(e) {
     e.preventDefault();
@@ -49,9 +81,18 @@ export default function Checkout() {
       setError("");
 
       const userId = user?.id || "guest";
-      const order = await createOrderInSupabase(userId, cart, grandTotal);
+      const order = await createOrderInSupabase(userId, cart, grandTotal, {
+        fullName: shipping.fullName,
+        phone: shipping.phone,
+        email: shipping.email,
+        city: shipping.city,
+        address: shipping.address,
+        notes: shipping.notes,
+        paymentMethod: paymentMethod === "cod" ? "Cash on Delivery" : "Credit / Debit Card",
+      });
 
-      setOrderId(order?.id || Math.floor(100000 + Math.random() * 900000));
+      const generatedId = order?.order_number || order?.id || `DRIP-${Math.floor(100000 + Math.random() * 900000)}`;
+      setOrderId(generatedId);
       dispatch(clearCart());
       setOrderPlaced(true);
     } catch (err) {
@@ -92,7 +133,7 @@ export default function Checkout() {
               <h2 style={{ fontFamily: "var(--display)", fontSize: "32px", fontWeight: "700", marginBottom: "8px" }}>
                 Order Confirmed!
               </h2>
-              <p style={{ fontFamily: "var(--mono)", fontSize: "13px", color: "var(--cobalt)", fontWeight: "700", marginBottom: "16px" }}>
+              <p style={{ fontFamily: "var(--mono)", fontSize: "15px", color: "var(--cobalt)", fontWeight: "700", marginBottom: "16px" }}>
                 Order #{orderId}
               </p>
               <p style={{ color: "var(--ink-soft)", fontSize: "16px", lineHeight: "1.65", marginBottom: "32px" }}>
@@ -101,8 +142,16 @@ export default function Checkout() {
               </p>
 
               <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }}>
-                <Button text="Continue Shopping" className="btn btn-primary btn-lg" onClick={() => navigate("/shop")} />
-                <Button text="View Account" className="btn btn-ghost btn-lg" onClick={() => navigate("/settings")} />
+                <Button
+                  text="🚚 Track Your Order Live →"
+                  className="btn btn-primary btn-lg"
+                  onClick={() => navigate(`/track-order?id=${orderId}`)}
+                />
+                <Button
+                  text="Continue Shopping"
+                  className="btn btn-ghost btn-lg"
+                  onClick={() => navigate("/shop")}
+                />
               </div>
             </div>
           ) : cart.length === 0 ? (
@@ -282,11 +331,46 @@ export default function Checkout() {
                   ))}
                 </div>
 
+                {/* Promo Code Input in Checkout */}
+                <div style={{ margin: "16px 0", padding: "14px", background: "var(--canvas-dark)", borderRadius: "var(--r-md)", border: "1px solid var(--paper-line)" }}>
+                  <label style={{ fontSize: "11px", fontWeight: "700", fontFamily: "var(--mono)", color: "var(--ink-muted)", display: "block", marginBottom: "6px" }}>
+                    PROMO / DISCOUNT COUPON
+                  </label>
+                  {appliedPromo ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f0fdf4", padding: "8px 12px", borderRadius: "6px", border: "1px solid #bbf7d0", fontSize: "13px" }}>
+                      <span style={{ color: "#166534", fontWeight: "600" }}>✓ {appliedPromo} Applied</span>
+                      <button type="button" onClick={handleRemoveCoupon} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontWeight: "700" }}>✕</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyCoupon} style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        placeholder="Coupon (e.g. WELCOME20)"
+                        value={promoCodeInput}
+                        onChange={(e) => setPromoCodeInput(e.target.value)}
+                        style={{ flex: 1, padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid var(--paper-line)", textTransform: "uppercase" }}
+                      />
+                      <button type="submit" className="btn btn-ghost btn-sm" style={{ whiteSpace: "nowrap" }}>
+                        Apply
+                      </button>
+                    </form>
+                  )}
+                  {promoError && (
+                    <p style={{ color: "var(--poppy)", fontSize: "12px", margin: "6px 0 0" }}>{promoError}</p>
+                  )}
+                </div>
+
                 <div style={{ borderTop: "1px solid var(--paper-line)", paddingTop: "16px" }}>
                   <div className="summary-row">
                     <span>Subtotal</span>
                     <span>{fmt(subtotal)}</span>
                   </div>
+                  {discount > 0 && (
+                    <div className="summary-row" style={{ color: "var(--sage)", fontWeight: "600" }}>
+                      <span>Promo Discount {appliedPromo ? `(${appliedPromo})` : ""}</span>
+                      <span>-{fmt(discount)}</span>
+                    </div>
+                  )}
                   <div className="summary-row">
                     <span>GST Tax (5%)</span>
                     <span>{fmt(tax)}</span>

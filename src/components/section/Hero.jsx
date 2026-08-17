@@ -62,14 +62,19 @@ export default function Hero() {
 
           <div className="hero-actions">
             <Button
-              text="Shop Collection"
+              text="Shop Collection →"
               className="btn btn-primary btn-lg"
               onClick={() => navigate("/shop")}
             />
             <Button
-              text="View Categories"
+              text="🎨 Room Visualizer"
               className="btn btn-ghost"
-              onClick={() => navigate("/categories")}
+              onClick={() => navigate("/visualizer")}
+            />
+            <Button
+              text="📐 Paint Calculator"
+              className="btn btn-ghost"
+              onClick={() => navigate("/calculator")}
             />
           </div>
 

@@ -89,10 +89,10 @@ export default function Categories() {
               <div
                 key={cat.title}
                 className="category-card"
-                onClick={() => navigate("/shop")}
+                onClick={() => navigate(`/shop?category=${encodeURIComponent(cat.title)}`)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && navigate("/shop")}
+                onKeyDown={(e) => e.key === "Enter" && navigate(`/shop?category=${encodeURIComponent(cat.title)}`)}
               >
                 <img src={cat.image} alt={cat.title} loading="lazy" />
 

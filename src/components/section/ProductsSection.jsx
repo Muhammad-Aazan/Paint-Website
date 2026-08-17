@@ -27,7 +27,15 @@ const fallbackProducts = [
   { id: 6, image: spray,        category: "Spray Gun",       name: "Professional Spray Gun",   rating: "★★★★★", reviews: "44",  price: 3500, unit: "/ piece",  stock: 0  },
 ];
 
-export default function ProductsSection({ limit, searchQuery = "", sortBy = "Newest" }) {
+export default function ProductsSection({
+  limit,
+  searchQuery = "",
+  sortBy = "Newest",
+  categoryFilter = "All",
+  maxPrice = 10000,
+  inStockOnly = false,
+  minRating = 0,
+}) {
   const navigate   = useNavigate();
   const dispatch   = useDispatch();
   const toast      = useToast();
@@ -65,16 +73,40 @@ export default function ProductsSection({ limit, searchQuery = "", sortBy = "New
   // Filter & sort
   let processed = products.filter((p) => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      p.name?.toLowerCase().includes(q) ||
-      (p.category || "").toLowerCase().includes(q)
-    );
+    if (q && !p.name?.toLowerCase().includes(q) && !(p.category || "").toLowerCase().includes(q)) {
+      return false;
+    }
+
+    if (categoryFilter && categoryFilter !== "All") {
+      const cat = (p.category || "").toLowerCase();
+      const targetCat = categoryFilter.toLowerCase();
+      if (!cat.includes(targetCat) && !targetCat.includes(cat)) {
+        return false;
+      }
+    }
+
+    const priceNum = typeof p.price === "number" ? p.price : Number(String(p.price).replace(/[^0-9.-]+/g, "")) || 0;
+    if (maxPrice && priceNum > Number(maxPrice)) {
+      return false;
+    }
+
+    if (inStockOnly && p.stock !== undefined && p.stock === 0) {
+      return false;
+    }
+
+    if (minRating && minRating > 0) {
+      const starCount = (p.rating || "").split("★").length - 1;
+      const score = p.ratingScore || (starCount > 0 ? starCount : 5);
+      if (score < minRating) return false;
+    }
+
+    return true;
   });
 
   if (sortBy === "Price Low to High")  processed.sort((a, b) => +a.price - +b.price);
   if (sortBy === "Price High to Low")  processed.sort((a, b) => +b.price - +a.price);
   if (sortBy === "Best Selling")       processed.sort((a, b) => +(b.reviews || 0) - +(a.reviews || 0));
+  if (sortBy === "Highest Rated")      processed.sort((a, b) => +((b.rating || "").split("★").length - 1) - +((a.rating || "").split("★").length - 1));
 
   const visible = limit === false ? processed : processed.slice(0, 6);
   const wishlistIds = new Set(wishlistItems.map((i) => String(i.id)));

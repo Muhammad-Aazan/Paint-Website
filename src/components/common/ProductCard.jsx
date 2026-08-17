@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export function ProductCardSkeleton() {
   return (
@@ -29,14 +30,23 @@ export default function ProductCard({
   isWishlist,
   addToCart,
 }) {
+  const navigate = useNavigate();
   const isLowStock = stock !== undefined && stock > 0 && stock <= 10;
   const isOutOfStock = stock !== undefined && stock === 0;
 
-  function handleAddToCart() {
+  const productId = product?.id || 1;
+
+  function handleCardClick() {
+    navigate(`/product/${productId}`);
+  }
+
+  function handleAddToCart(e) {
+    e.stopPropagation();
     if (addToCart && product) addToCart(product);
   }
 
-  function handleWishlist() {
+  function handleWishlist(e) {
+    e.stopPropagation();
     if (!product) return;
     if (isWishlist) {
       removeFromWishlist?.(product.id);
@@ -46,7 +56,7 @@ export default function ProductCard({
   }
 
   return (
-    <div className="product-card">
+    <div className="product-card" onClick={handleCardClick} style={{ cursor: "pointer" }}>
       {/* Image + quick actions */}
       <div className="product-card-img-wrap">
         <img
@@ -57,7 +67,7 @@ export default function ProductCard({
         />
 
         {/* Quick actions overlay */}
-        <div className="product-card-actions">
+        <div className="product-card-actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="product-card-action-btn cart"
             onClick={handleAddToCart}

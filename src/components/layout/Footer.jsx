@@ -52,13 +52,14 @@ export default function Footer() {
 
           {/* Help column */}
           <div className="footer-col">
-            <h4>Help</h4>
+            <h4>Tools & Help</h4>
             <ul>
+              <li><Link to="/visualizer">🎨 Room Visualizer</Link></li>
+              <li><Link to="/calculator">📐 Paint Calculator</Link></li>
+              <li><Link to="/track-order">📦 Track My Order</Link></li>
               <li><Link to="/cart">My Cart</Link></li>
               <li><Link to="/wishlist">My Wishlist</Link></li>
               <li><Link to="/settings">Account Settings</Link></li>
-              <li><Link to="/contact">Returns & Refunds</Link></li>
-              <li><Link to="/contact">Branch Locator</Link></li>
             </ul>
           </div>
         </div>
