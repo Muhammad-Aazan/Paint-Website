@@ -473,38 +473,28 @@ export default function TrackOrder() {
                   </div>
                 )}
 
-                {/* REAL-TIME ADMIN APPROVAL NOTICE (If pending) */}
+                {/* REAL-TIME ORDER VERIFICATION NOTICE (If pending) */}
                 {isPendingApproval && (
                   <div style={{
                     background: "var(--surface)",
-                    border: "2px dashed #f59e0b",
+                    border: "1.5px solid #fcd34d",
                     borderRadius: "var(--r-xl)",
-                    padding: "24px 28px",
+                    padding: "20px 24px",
                     marginBottom: "32px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
                     gap: "16px",
                     boxShadow: "var(--shadow-sm)"
                   }}>
-                    <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-                      <div style={{ fontSize: "36px", animation: "dot-pulse 1.2s infinite" }}>⏳</div>
-                      <div>
-                        <h4 style={{ fontFamily: "var(--display)", fontSize: "18px", fontWeight: "700", margin: 0, color: "#b45309" }}>
-                          Awaiting Admin Confirmation
-                        </h4>
-                        <p style={{ fontSize: "13px", color: "var(--ink-soft)", margin: "4px 0 0" }}>
-                          Your order has been sent to the Admin queue. As soon as the Admin clicks <strong>"Approve Order"</strong> in the Admin Portal, this screen will update in real-time!
-                        </p>
-                      </div>
+                    <div style={{ fontSize: "32px", animation: "dot-pulse 1.2s infinite" }}>⏳</div>
+                    <div>
+                      <h4 style={{ fontFamily: "var(--display)", fontSize: "17px", fontWeight: "700", margin: 0, color: "#b45309" }}>
+                        Order Under Review
+                      </h4>
+                      <p style={{ fontSize: "13.5px", color: "var(--ink-soft)", margin: "4px 0 0", lineHeight: "1.5" }}>
+                        Our fulfillment team is reviewing your order details and preparing your paint batch. This timeline will update automatically in real-time.
+                      </p>
                     </div>
-
-                    <Button
-                      text="🔒 Open Admin Portal to Approve →"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => navigate("/admin")}
-                    />
                   </div>
                 )}
 
