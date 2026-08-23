@@ -71,8 +71,6 @@ export default function Checkout() {
     notes: "",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState("cod"); // 'cod' or 'card'
-
   const getPrice = (item) => {
     if (typeof item.priceNumber === "number" && item.priceNumber > 0) return item.priceNumber;
     return Number(String(item.price || 0).replace(/[^0-9.-]+/g, "")) || 0;
@@ -127,7 +125,7 @@ export default function Checkout() {
         shippingSpeed: deliverySpeed,
         shippingFee: shippingFee,
         discount: discount,
-        paymentMethod: paymentMethod === "cod" ? "Cash on Delivery" : "Credit / Debit Card",
+        paymentMethod: "Cash on Delivery",
       });
 
       const generatedId = order?.order_number || order?.id || `DRIP-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -372,52 +370,36 @@ export default function Checkout() {
 
                 {/* Step 3: Payment Method */}
                 <div className="checkout-section">
-                  <h3>3. Payment Method</h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ margin: 0 }}>3. Payment Method</h3>
+                    <span style={{ fontSize: "12px", fontFamily: "var(--mono)", color: "var(--sage)", fontWeight: "700" }}>
+                      ✓ Guaranteed COD
+                    </span>
+                  </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <label style={{
                       display: "flex",
                       alignItems: "center",
                       gap: "14px",
-                      padding: "16px 20px",
+                      padding: "18px 20px",
                       borderRadius: "var(--r-md)",
-                      border: paymentMethod === "cod" ? "2px solid var(--cobalt)" : "1px solid var(--paper-line)",
-                      background: paymentMethod === "cod" ? "var(--cobalt-glow)" : "var(--surface)",
-                      cursor: "pointer",
+                      border: "2px solid var(--cobalt)",
+                      background: "var(--cobalt-glow)",
+                      cursor: "default",
                       transition: "all 0.2s ease"
                     }}>
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === "cod"}
-                        onChange={() => setPaymentMethod("cod")}
+                        checked={true}
+                        readOnly
                       />
                       <div>
-                        <strong style={{ display: "block", fontSize: "15px" }}>💵 Cash on Delivery (COD)</strong>
-                        <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>Pay in cash upon receiving your paint shipment.</span>
-                      </div>
-                    </label>
-
-                    <label style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "14px",
-                      padding: "16px 20px",
-                      borderRadius: "var(--r-md)",
-                      border: paymentMethod === "card" ? "2px solid var(--cobalt)" : "1px solid var(--paper-line)",
-                      background: paymentMethod === "card" ? "var(--cobalt-glow)" : "var(--surface)",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease"
-                    }}>
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === "card"}
-                        onChange={() => setPaymentMethod("card")}
-                      />
-                      <div>
-                        <strong style={{ display: "block", fontSize: "15px" }}>💳 Credit / Debit Card (Online)</strong>
-                        <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>Visa, MasterCard, UnionPay, &amp; JazzCash / EasyPaisa.</span>
+                        <strong style={{ display: "block", fontSize: "15px", color: "var(--ink)" }}>💵 Cash on Delivery (COD)</strong>
+                        <span style={{ fontSize: "13px", color: "var(--ink-soft)" }}>
+                          Pay in cash to the delivery courier after inspecting your paint shipment.
+                        </span>
                       </div>
                     </label>
                   </div>
