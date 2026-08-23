@@ -76,6 +76,7 @@ export default function Navbar() {
           >
             <NavLink to="/"           className={navLinkClass} onClick={closeMenu}>Home</NavLink>
             <NavLink to="/shop"       className={navLinkClass} onClick={closeMenu}>Shop</NavLink>
+            <NavLink to="/track-order" className={navLinkClass} onClick={closeMenu}>Orders</NavLink>
             <NavLink to="/visualizer" className={navLinkClass} onClick={closeMenu}>Visualizer</NavLink>
             <NavLink to="/calculator" className={navLinkClass} onClick={closeMenu}>Calculator</NavLink>
             <NavLink to="/painters"   className={navLinkClass} onClick={closeMenu}>Painters</NavLink>
