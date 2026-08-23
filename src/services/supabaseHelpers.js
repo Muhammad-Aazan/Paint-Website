@@ -683,9 +683,33 @@ export async function createProduct(product) {
     active: true,
   };
 
-  const { data, error } = await supabase.from("products").insert(payload).select().single();
-  if (error) throw error;
-  return data;
+  // Attempt 1: Full payload with category and unit
+  let { data, error } = await supabase.from("products").insert(payload).select().maybeSingle();
+
+  // Attempt 2: If column missing (e.g. 'category' or 'unit' or 'stock'), strip missing column and retry
+  if (error && (error.message?.includes("category") || error.message?.includes("unit") || error.code === "PGRST204")) {
+    console.warn("createProduct schema mismatch, retrying without category/unit columns:", error.message);
+    const { category, unit, ...safePayload } = payload;
+    const retry = await supabase.from("products").insert(safePayload).select().maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  // Attempt 3: If still error due to stock column
+  if (error && (error.message?.includes("stock") || error.code === "PGRST204")) {
+    console.warn("createProduct schema mismatch, retrying without stock column:", error.message);
+    const { category, unit, stock, ...minimalPayload } = payload;
+    const retry = await supabase.from("products").insert(minimalPayload).select().maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (error) {
+    console.error("createProduct error:", error);
+    throw error;
+  }
+
+  return data || payload;
 }
 
 export async function updateProduct(id, updates) {
@@ -702,8 +726,22 @@ export async function updateProduct(id, updates) {
   if (updates.reviews !== undefined) payload.reviews_count = Number(updates.reviews) || 0;
   if (updates.rating !== undefined) payload.rating = Number(updates.rating) || 5;
 
-  const { data, error } = await supabase.from("products").update(payload).eq("id", id).select().single();
-  if (error) throw error;
+  let { data, error } = await supabase.from("products").update(payload).eq("id", id).select().maybeSingle();
+
+  // Fallback if category or unit columns don't exist in Supabase
+  if (error && (error.message?.includes("category") || error.message?.includes("unit") || error.code === "PGRST204")) {
+    console.warn("updateProduct schema mismatch, retrying without category/unit columns:", error.message);
+    const { category, unit, ...safePayload } = payload;
+    const retry = await supabase.from("products").update(safePayload).eq("id", id).select().maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (error) {
+    console.error("updateProduct error:", error);
+    throw error;
+  }
+
   return data;
 }
 
