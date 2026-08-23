@@ -4093,9 +4093,117 @@ textarea.form-input { resize: vertical; min-height: 130px; }
   margin: 0;
 }
 
+.track-orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.track-order-card {
+  background: var(--surface);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--r-xl);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s var(--ease-spring);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.track-order-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--cobalt);
+}
+
+.track-order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.track-filter-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.track-filter-btn {
+  background: var(--surface);
+  border: 1px solid var(--paper-line);
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.track-filter-btn:hover {
+  background: var(--canvas-dark);
+  color: var(--ink);
+}
+
+.track-filter-btn.active {
+  background: var(--cobalt);
+  color: #ffffff;
+  border-color: var(--cobalt);
+  box-shadow: 0 4px 12px rgba(30, 61, 110, 0.2);
+}
+
+.track-item-card-interactive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--canvas-dark);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--r-md);
+  transition: all 0.2s ease;
+  margin-bottom: 10px;
+}
+
+.track-item-card-interactive:hover {
+  background: #ffffff;
+  border-color: var(--cobalt);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.track-product-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cobalt);
+  background: rgba(30, 61, 110, 0.06);
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.track-product-link-btn:hover {
+  background: var(--cobalt);
+  color: #ffffff;
+}
+
 /* RESPONSIVE BREAKPOINTS */
 @media (max-width: 900px) {
   .pdp-grid, .calc-layout-grid, .visualizer-layout, .track-grid-2col {
+    grid-template-columns: 1fr;
+  }
+  .track-orders-grid {
     grid-template-columns: 1fr;
   }
   .calc-inputs-3col {

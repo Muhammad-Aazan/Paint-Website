@@ -24,7 +24,6 @@ const AVATAR_PRESETS = [
 /* ─── Tab config ────────────────────────────────────────── */
 const TABS = [
   { id: "profile",  label: "Profile",   icon: "👤" },
-  { id: "orders",   label: "Orders",    icon: "📦" },
   { id: "security", label: "Security",  icon: "🔒" },
   { id: "danger",   label: "Danger",    icon: "⚠️" },
 ];
@@ -45,25 +44,6 @@ const StatusBadge = memo(({ status }) => {
     </span>
   );
 });
-
-const OrderCard = memo(({ ord, onTrack }) => (
-  <div className="profile-order-card">
-    <div className="profile-order-card-left">
-      <div className="profile-order-meta">
-        <span className="profile-order-num">{ord.order_number || `#${ord.id}`}</span>
-        <StatusBadge status={ord.order_status || ord.status || "pending"} />
-      </div>
-      <p className="profile-order-info">
-        {new Date(ord.created_at || Date.now()).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })}
-        &nbsp;·&nbsp;
-        <strong>Rs. {Number(ord.total || ord.total_amount || 0).toLocaleString()}</strong>
-      </p>
-    </div>
-    <button className="btn btn-primary btn-sm" onClick={() => onTrack(ord.order_number || ord.id)}>
-      Track →
-    </button>
-  </div>
-));
 
 const ToggleRow = memo(({ label, desc, checked, onChange }) => (
   <div className="profile-toggle-row">
@@ -270,13 +250,12 @@ export default function Settings() {
                   >
                     <span>{t.icon}</span>
                     <span>{t.label}</span>
-                    {t.id === "orders" && userOrders.length > 0 && <span className="profile-nav-badge">{userOrders.length}</span>}
                   </button>
                 ))}
               </nav>
 
-              <button type="button" className="btn btn-ghost btn-sm profile-track-btn" onClick={() => navigate("/track-order")}>
-                🚚 Track an Order
+              <button type="button" className="btn btn-primary btn-sm profile-track-btn" style={{ width: "100%", marginTop: "16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} onClick={() => navigate("/track-order")}>
+                📦 My Orders &amp; Tracking →
               </button>
             </aside>
 
@@ -352,34 +331,6 @@ export default function Settings() {
                     {loading ? "Saving…" : "Save Profile"}
                   </button>
                 </form>
-              )}
-
-              {/* ── TAB: ORDERS ── */}
-              {activeTab === "orders" && (
-                <div className="profile-form">
-                  <div className="profile-section-head">
-                    <h2 className="profile-section-title">My Orders</h2>
-                    <p className="profile-section-desc">All your recent paint purchases and their live status.</p>
-                  </div>
-                  {loading ? (
-                    <div className="profile-loading-row">
-                      <span className="profile-loading-dot" /><span className="profile-loading-dot" /><span className="profile-loading-dot" />
-                    </div>
-                  ) : userOrders.length === 0 ? (
-                    <div className="profile-empty">
-                      <div className="profile-empty-icon">🛍️</div>
-                      <h4>No orders yet</h4>
-                      <p>Start shopping and your orders will appear here.</p>
-                      <button className="btn btn-primary btn-sm" onClick={() => navigate("/shop")}>Browse Shop →</button>
-                    </div>
-                  ) : (
-                    <div className="profile-orders-list">
-                      {userOrders.map((ord) => (
-                        <OrderCard key={ord.id || ord.order_number} ord={ord} onTrack={trackOrder} />
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
 
               {/* ── TAB: SECURITY ── */}
