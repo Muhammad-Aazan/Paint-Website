@@ -2,6 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   items: [],
+  isDrawerOpen: false,
 };
 
 const cartSlice = createSlice({
@@ -19,7 +20,7 @@ const cartSlice = createSlice({
       const existing = state.items.find((i) => String(i.id) === String(product.id));
 
       if (existing) {
-        existing.quantity += 1;
+        existing.quantity += (product.quantity || 1);
       } else {
         state.items.push({
           id: product.id,
@@ -30,7 +31,7 @@ const cartSlice = createSlice({
           unit: product.unit,
           rating: product.rating,
           reviews: product.reviews,
-          quantity: 1,
+          quantity: product.quantity || 1,
           priceNumber,
         });
       }
@@ -43,13 +44,13 @@ const cartSlice = createSlice({
 
     increaseQuantity: (state, action) => {
       const id = action.payload;
-      const item = state.items.find((i) => i.id === id);
+      const item = state.items.find((i) => String(i.id) === String(id));
       if (item) item.quantity += 1;
     },
 
     decreaseQuantity: (state, action) => {
       const id = action.payload;
-      const item = state.items.find((i) => i.id === id);
+      const item = state.items.find((i) => String(i.id) === String(id));
       if (item) {
         item.quantity -= 1;
         if (item.quantity <= 0) {
@@ -64,6 +65,15 @@ const cartSlice = createSlice({
     setCart: (state, action) => {
       state.items = Array.isArray(action.payload) ? action.payload : [];
     },
+    openDrawer: (state) => {
+      state.isDrawerOpen = true;
+    },
+    closeDrawer: (state) => {
+      state.isDrawerOpen = false;
+    },
+    toggleDrawer: (state) => {
+      state.isDrawerOpen = !state.isDrawerOpen;
+    },
   },
 });
 
@@ -74,6 +84,9 @@ export const {
   decreaseQuantity,
   clearCart,
   setCart,
+  openDrawer,
+  closeDrawer,
+  toggleDrawer,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

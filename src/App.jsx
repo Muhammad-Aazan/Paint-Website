@@ -3,7 +3,7 @@ import "@/components/common/Button.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
 import { useDispatch } from "react-redux";
-import { ProtectedRoute } from "@/components";
+import { ProtectedRoute, CartDrawer, WhatsAppWidget } from "@/components";
 import { initializeAuth } from "@/features/auth/authSlice";
 
 // Code-split all routes for production performance
@@ -50,6 +50,12 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {/* Global Slide-Over Cart Drawer */}
+      <CartDrawer />
+
+      {/* Global Floating WhatsApp Concierge Widget */}
+      <WhatsAppWidget />
+
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/"                element={<Home />} />

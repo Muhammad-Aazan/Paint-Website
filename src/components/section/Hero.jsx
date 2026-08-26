@@ -1,114 +1,149 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/common/Button";
 
+const slides = [
+  {
+    id: "slide-1",
+    badge: "✦ PAKISTAN'S PREMIER LUXURY PAINT HOUSE",
+    title: "Architectural Interior Velvet & Silk Emulsions",
+    subtitle: "Formulated with zero-VOC eco resins, washable scrub durability, and ultra-deep pigments for luxury residences, apartments, and villas.",
+    ctaText: "Explore Interior Paints →",
+    ctaUrl: "/shop",
+    bgImage: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=1920&q=80",
+    colorAccent: "#38bdf8",
+  },
+  {
+    id: "slide-2",
+    badge: "🛡️ 10-YEAR ALL-WEATHER MONSOON SHIELD",
+    title: "Exterior Weatherproof Acrylic & Anti-Algae Finishes",
+    subtitle: "Heavy-duty 100% pure acrylic formulation engineered to withstand Pakistan's intense summer UV heat, monsoon moisture, and exterior micro-cracking.",
+    ctaText: "Discover Weather Shields →",
+    ctaUrl: "/shop",
+    bgImage: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=1920&q=80",
+    colorAccent: "#34d399",
+  },
+  {
+    id: "slide-3",
+    badge: "🎨 10,000+ COMPUTERIZED SHADE MATCHING",
+    title: "Precision Tinting, Primers & Professional Spray Gear",
+    subtitle: "Spectrophotometer accuracy custom color formulation with high-flow dual-angle rollers, precision sash brushes, and contractor airless sprayers.",
+    ctaText: "Browse Supplies & Tools →",
+    ctaUrl: "/shop",
+    bgImage: "https://images.unsplash.com/photo-1572021335469-31706a17aaef?auto=format&fit=crop&w=1920&q=80",
+    colorAccent: "#fbbf24",
+  },
+];
+
 export default function Hero() {
   const navigate = useNavigate();
-  const statsRef = useRef(null);
+  const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
-  // Animate stat counters on first visible
   useEffect(() => {
-    const elements = document.querySelectorAll(".hero-stat-num[data-target]");
+    if (isPaused) return;
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isPaused]);
 
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        const el = entry.target;
-        const target = parseInt(el.dataset.target, 10);
-        const suffix = el.dataset.suffix || "";
-        let start = 0;
-        const duration = 1200;
-        const step = (timestamp) => {
-          if (!start) start = timestamp;
-          const progress = Math.min((timestamp - start) / duration, 1);
-          const val = Math.floor(progress * target);
-          el.textContent = val + suffix;
-          if (progress < 1) requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
-        observer.unobserve(el);
-      });
-    }, { threshold: 0.5 });
-
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+  const slide = slides[current];
 
   return (
-    <section className="hero">
-      {/* Top rainbow drip accents */}
-      <div className="hero-drips" aria-hidden="true">
-        <span className="drip drip-cobalt" />
-        <span className="drip drip-poppy" />
-        <span className="drip drip-saffron" />
-        <span className="drip drip-sage" />
+    <section
+      className="hero-carousel-section"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Background Image with Gradient Overlays */}
+      <div className="hero-carousel-bg-wrap">
+        <img
+          src={slide.bgImage}
+          alt={slide.title}
+          className="hero-carousel-bg-img"
+          key={slide.id}
+        />
+        <div className="hero-carousel-overlay-grad" />
+        <div className="hero-carousel-radial-grad" />
       </div>
 
-      <div className="hero-inner">
-        {/* Left — text */}
-        <div className="hero-text">
-          <p className="hero-eyebrow">✦ New season colors · In stock now</p>
-
-          <h1 className="hero-title">
-            Paint that turns<br />
-            a house into<br />
-            <em>your</em> home.
-          </h1>
-
-          <p className="hero-sub">
-            Hand-mixed interiors, exteriors, primers and professional tools —
-            crafted for perfectionists who believe every wall deserves the very best.
-          </p>
-
-          <div className="hero-actions">
-            <Button
-              text="Shop Collection →"
-              className="btn btn-primary btn-lg"
-              onClick={() => navigate("/shop")}
-            />
-            <Button
-              text="🎨 Room Visualizer"
-              className="btn btn-ghost"
-              onClick={() => navigate("/visualizer")}
-            />
-            <Button
-              text="📐 Paint Calculator"
-              className="btn btn-ghost"
-              onClick={() => navigate("/calculator")}
-            />
-          </div>
-
-          <div className="hero-stats" ref={statsRef}>
-            <div className="hero-stat">
-              <span className="hero-stat-num" data-target="120" data-suffix="+">0+</span>
-              <span className="hero-stat-label">Ready-mixed shades</span>
-            </div>
-            <div className="hero-stat">
-              <span className="hero-stat-num" data-target="12">0</span>
-              <span className="hero-stat-label">Branches nationwide</span>
-            </div>
-            <div className="hero-stat">
-              <span className="hero-stat-num" data-target="48" data-suffix="k+">0k+</span>
-              <span className="hero-stat-label">Happy customers</span>
-            </div>
-            <div className="hero-stat">
-              <span className="hero-stat-num">4.9★</span>
-              <span className="hero-stat-label">Average rating</span>
-            </div>
-          </div>
+      <div className="wrap hero-carousel-content-wrap">
+        {/* Badge */}
+        <div className="hero-carousel-badge">
+          <span className="hero-carousel-badge-dot" />
+          {slide.badge}
         </div>
 
-        {/* Right — paint swatches */}
-        <div className="hero-visual">
-          <div className="hero-swatch hero-swatch-1" />
-          <div className="hero-swatch hero-swatch-2" />
-          <div className="hero-swatch hero-swatch-3" />
-          <div className="hero-swatch hero-swatch-4" />
+        {/* Title */}
+        <h1 className="hero-carousel-title" key={`title-${current}`}>
+          {slide.title}
+        </h1>
 
-          {/* Floating product card */}
-          <div className="hero-visual-card">
-            <span className="hero-visual-name">Cobalt Hour</span>
-            <span className="hero-visual-price">Rs. 2,450 / gal</span>
+        {/* Subtitle */}
+        <p className="hero-carousel-sub" key={`sub-${current}`}>
+          {slide.subtitle}
+        </p>
+
+        {/* Action Buttons */}
+        <div className="hero-carousel-actions">
+          <Button
+            text={slide.ctaText}
+            className="btn btn-primary btn-lg hero-cta-btn"
+            onClick={() => navigate(slide.ctaUrl)}
+          />
+
+          <a
+            href="https://wa.me/923001234567?text=Salam%20DRIP%20Team!%20I%20want%20to%20consult%20regarding%20paint%20shades%20and%20pricing."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hero-carousel-wa-btn"
+          >
+            💬 WhatsApp Showroom Helpdesk
+          </a>
+
+          <button
+            type="button"
+            className="hero-carousel-tool-btn"
+            onClick={() => navigate("/visualizer")}
+          >
+            🎨 Room Visualizer
+          </button>
+        </div>
+
+        {/* Slide Controls & Progress Bar */}
+        <div className="hero-carousel-controls">
+          <div className="hero-carousel-pills">
+            {slides.map((s, idx) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`hero-carousel-pill ${idx === current ? "active" : ""}`}
+                onClick={() => setCurrent(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+              >
+                {idx === current && <span className="hero-carousel-pill-progress" />}
+              </button>
+            ))}
+          </div>
+
+          <div className="hero-carousel-arrows">
+            <button
+              type="button"
+              className="hero-carousel-arrow-btn"
+              onClick={() => setCurrent((c) => (c - 1 + slides.length) % slides.length)}
+              aria-label="Previous Slide"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="hero-carousel-arrow-btn"
+              onClick={() => setCurrent((c) => (c + 1) % slides.length)}
+              aria-label="Next Slide"
+            >
+              ›
+            </button>
           </div>
         </div>
       </div>

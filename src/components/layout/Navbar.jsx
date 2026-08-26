@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { openDrawer } from "@/features/cart/cartSlice";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const wishlistCount = useSelector((state) => state.wishlist.items.length);
   const cartTotal = useSelector((state) =>
@@ -119,7 +121,7 @@ export default function Navbar() {
               className="navbar-icon-btn navbar-cart"
               aria-label={`Cart (${cartTotal} items)`}
               title="Shopping Cart"
-              onClick={() => navigate("/cart")}
+              onClick={() => dispatch(openDrawer())}
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="9" cy="21" r="1" />
