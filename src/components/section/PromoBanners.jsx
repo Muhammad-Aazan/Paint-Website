@@ -1,43 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/components/common/useToast";
+import { getAllPromoDeals } from "@/services/bannerHelpers";
 
 export default function PromoBanners() {
   const toast = useToast();
   const [copiedCode, setCopiedCode] = useState(null);
+  const [offers, setOffers] = useState(() => getAllPromoDeals());
 
-  const offers = [
-    {
-      id: "opt-1",
-      badge: "SEASONAL SAVINGS",
-      discount: "20% OFF",
-      title: "Architectural Interior Matte & Velvet Emulsions",
-      desc: "Apply discount code on all interior gallons and quarter cans for living rooms and master suites.",
-      code: "WELCOME20",
-      bgGradient: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-      accent: "#a5b4fc",
-    },
-    {
-      id: "opt-2",
-      badge: "MONSOON SHIELD",
-      discount: "Rs. 500 OFF",
-      title: "Exterior Weatherproof Acrylic & Elastomeric Paints",
-      desc: "Heavy-duty UV and dampness protection for house exteriors, boundary walls, and rooftops.",
-      code: "DRIP500",
-      bgGradient: "linear-gradient(135deg, #064e3b 0%, #065f46 100%)",
-      accent: "#6ee7b7",
-    },
-    {
-      id: "opt-3",
-      badge: "BULK CONTRACTOR",
-      discount: "FREE SHIPPING",
-      title: "Full House & Commercial Villa Orders (Above Rs. 15k)",
-      desc: "Direct factory freight dispatch across Pakistan with zero shipping charges and priority tinting.",
-      code: "FREESHIP",
-      bgGradient: "linear-gradient(135deg, #78350f 0%, #92400e 100%)",
-      accent: "#fde68a",
-    },
-  ];
+  useEffect(() => {
+    const updateDeals = () => setOffers(getAllPromoDeals());
+    updateDeals();
+
+    let bc = null;
+    try {
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("drip_orders_realtime");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "DEALS_UPDATED") {
+            setOffers(event.data.payload || getAllPromoDeals());
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === "drip_promo_deals_db") {
+        updateDeals();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -62,36 +60,40 @@ export default function PromoBanners() {
         <div className="promo-banners-grid">
           {offers.map((offer) => (
             <div
-              key={offer.id}
+              key={offer.id || offer.code}
               className="promo-card"
-              style={{ background: offer.bgGradient }}
             >
-              <div className="promo-card-top">
-                <span className="promo-badge" style={{ color: offer.accent, borderColor: `${offer.accent}40` }}>
-                  {offer.badge}
-                </span>
-                <span className="promo-discount-num" style={{ color: offer.accent }}>
-                  {offer.discount}
-                </span>
+              <div>
+                <div className="promo-card-top">
+                  <span className="promo-badge">
+                    ✦ {offer.badge}
+                  </span>
+                  <span className="promo-discount-num">
+                    {offer.discount}
+                  </span>
+                </div>
+
+                <h3 className="promo-card-title">{offer.title}</h3>
+                <p className="promo-card-desc">{offer.desc}</p>
               </div>
 
-              <h3 className="promo-card-title">{offer.title}</h3>
-              <p className="promo-card-desc">{offer.desc}</p>
+              <div>
+                <div className="promo-coupon-box">
+                  <span className="promo-code-text">{offer.code}</span>
+                  <button
+                    type="button"
+                    className="promo-copy-btn"
+                    onClick={() => handleCopyCode(offer.code)}
+                  >
+                    {copiedCode === offer.code ? "✓ Copied" : "Copy Code"}
+                  </button>
+                </div>
 
-              <div className="promo-coupon-box">
-                <span className="promo-code-text">{offer.code}</span>
-                <button
-                  type="button"
-                  className="promo-copy-btn"
-                  onClick={() => handleCopyCode(offer.code)}
+                <Link
+                  to="/shop"
+                  className="promo-shop-link"
                 >
-                  {copiedCode === offer.code ? "✓ Copied!" : "📋 Copy Code"}
-                </button>
-              </div>
-
-              <div className="promo-card-footer">
-                <Link to="/shop" className="promo-shop-link" style={{ color: offer.accent }}>
-                  Claim in Paint Shop →
+                  Shop Eligible Paints →
                 </Link>
               </div>
             </div>

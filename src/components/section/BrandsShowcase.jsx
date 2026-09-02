@@ -1,16 +1,36 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { getAllBrands } from "@/services/brandHelpers";
 
 export default function BrandsShowcase() {
-  const brands = [
-    { name: "Dulux", origin: "AkzoNobel", highlight: "Architectural Emulsions" },
-    { name: "Brighto", origin: "Pakistan", highlight: "Super Emulsions & Weathercoat" },
-    { name: "Berger", origin: "Robbialac", highlight: "VIP Weathercoat & Enamels" },
-    { name: "Nippon", origin: "Japan", highlight: "Anti-Bacterial & Odourless" },
-    { name: "Master", origin: "Pakistan", highlight: "Super Emulsion & Synthetic" },
-    { name: "Jotun", origin: "Norway", highlight: "Fenomastic & Majestic" },
-    { name: "Diamond", origin: "Pakistan", highlight: "Ace All-Weather & WoodCoat" },
-    { name: "Dadex", origin: "Building Systems", highlight: "Pipes & Wall Protection" },
-  ];
+  const [brands, setBrands] = useState(getAllBrands());
+
+  useEffect(() => {
+    setBrands(getAllBrands());
+
+    let bc = null;
+    try {
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("drip_orders_realtime");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "BRANDS_UPDATED") {
+            setBrands(event.data.payload || getAllBrands());
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === "drip_brands_db") {
+        setBrands(getAllBrands());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   return (
     <section className="brands-showcase-section">
@@ -25,7 +45,7 @@ export default function BrandsShowcase() {
 
         <div className="brands-grid">
           {brands.map((brand, i) => (
-            <div key={i} className="brand-chip-card">
+            <div key={brand.id || brand.name || i} className="brand-chip-card">
               <span className="brand-badge-name">{brand.name}</span>
               <span className="brand-badge-highlight">{brand.highlight}</span>
               <span className="brand-badge-origin">{brand.origin}</span>

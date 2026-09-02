@@ -84,7 +84,7 @@ export default function Painters() {
           <p className="page-eyebrow">PROFESSIONAL PAINTERS</p>
           <h1 className="inner-hero-title">
             Hire Expert Painters<br />
-            <em style={{ fontStyle: "italic", color: "var(--poppy)" }}>Across Pakistan</em>
+            <span style={{ color: "var(--cobalt)" }}>Across Pakistan</span>
           </h1>
           <p className="inner-hero-sub">
             Our certified painters deliver flawless results for homes and commercial projects —

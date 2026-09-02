@@ -1,20 +1,39 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Navbar, Footer, ProductsSection } from "@/components";
-
-const categoryList = [
-  { id: "All", label: "All Products", icon: "✨" },
-  { id: "Interior Paint", label: "Interior Paint", icon: "🏠" },
-  { id: "Exterior Paint", label: "Exterior Paint", icon: "🏗️" },
-  { id: "Premium Paint", label: "Premium & Enamels", icon: "💎" },
-  { id: "Brushes", label: "Brushes", icon: "🖌️" },
-  { id: "Rollers", label: "Rollers & Frames", icon: "🪄" },
-  { id: "Spray Gun", label: "Spray Equipment", icon: "⚡" },
-];
+import { getAllCategories } from "@/services/categoryHelpers";
 
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get("category") || "All";
+
+  const [categories, setCategories] = useState(() => getAllCategories());
+
+  useEffect(() => {
+    setCategories(getAllCategories());
+    const handleStorage = () => setCategories(getAllCategories());
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const categoryList = [
+    { id: "All", label: "All Products", icon: "✨" },
+    ...categories.map((c) => ({
+      id: c.title,
+      label: c.title,
+      icon: c.title.toLowerCase().includes("interior")
+        ? "🏠"
+        : c.title.toLowerCase().includes("exterior")
+        ? "🏗️"
+        : c.title.toLowerCase().includes("brush")
+        ? "🖌️"
+        : c.title.toLowerCase().includes("roller")
+        ? "🪄"
+        : c.title.toLowerCase().includes("spray")
+        ? "⚡"
+        : "🎨",
+    })),
+  ];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);

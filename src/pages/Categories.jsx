@@ -1,67 +1,39 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar, Footer } from "@/components";
-
-import interiorImg from "@/assets/cat-interior.png";
-import exteriorImg from "@/assets/cat-exterior.png";
-import primerImg   from "@/assets/cat-primer.png";
-import brushesImg  from "@/assets/cat-brushes.png";
-import rollersImg  from "@/assets/cat-rollers.png";
-import sprayImg    from "@/assets/cat-spray.png";
-
-const categories = [
-  {
-    image: interiorImg,
-    title: "Interior Paint",
-    description: "Transform your living spaces with rich, washable matte and eggshell finishes.",
-    count: "42 products",
-    tag: "Most Popular",
-    color: "var(--cobalt)",
-  },
-  {
-    image: exteriorImg,
-    title: "Exterior Paint",
-    description: "Weatherproof formulas that resist UV, heat, and Pakistan's harsh monsoons.",
-    count: "28 products",
-    tag: "All-Weather",
-    color: "var(--sage)",
-  },
-  {
-    image: primerImg,
-    title: "Primers & Sealers",
-    description: "Professional-grade adhesion primers for walls, wood, metal and concrete.",
-    count: "18 products",
-    tag: "Pro Series",
-    color: "var(--saffron)",
-  },
-  {
-    image: brushesImg,
-    title: "Brushes",
-    description: "Hand-selected bristle and synthetic brushes for flawless cut-in work.",
-    count: "24 products",
-    tag: "Precision",
-    color: "var(--poppy)",
-  },
-  {
-    image: rollersImg,
-    title: "Rollers & Frames",
-    description: "Low-splatter rollers for smooth, professional coverage on any surface.",
-    count: "15 products",
-    tag: "Smooth Finish",
-    color: "var(--cobalt-light)",
-  },
-  {
-    image: sprayImg,
-    title: "Spray Equipment",
-    description: "Electric HVLP and airless sprayers for large-scale professional projects.",
-    count: "9 products",
-    tag: "Professional",
-    color: "var(--sage-light)",
-  },
-];
+import { getAllCategories } from "@/services/categoryHelpers";
 
 export default function Categories() {
   const navigate = useNavigate();
+  const [categories, setCategories] = useState(getAllCategories());
+
+  useEffect(() => {
+    setCategories(getAllCategories());
+
+    let bc = null;
+    try {
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("drip_orders_realtime");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "CATEGORIES_UPDATED") {
+            setCategories(event.data.payload || getAllCategories());
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === "drip_categories_db") {
+        setCategories(getAllCategories());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   return (
     <>
@@ -87,7 +59,7 @@ export default function Categories() {
           <div className="categories-grid">
             {categories.map((cat) => (
               <div
-                key={cat.title}
+                key={cat.id || cat.slug || cat.title}
                 className="category-card"
                 onClick={() => navigate(`/shop?category=${encodeURIComponent(cat.title)}`)}
                 role="button"
@@ -97,30 +69,32 @@ export default function Categories() {
                 <img src={cat.image} alt={cat.title} loading="lazy" />
 
                 {/* Tag badge */}
-                <div style={{
-                  position: "absolute",
-                  top: "16px",
-                  left: "16px",
-                  padding: "4px 12px",
-                  background: cat.color,
-                  color: "white",
-                  borderRadius: "99px",
-                  fontSize: "11px",
-                  fontFamily: "var(--mono)",
-                  fontWeight: "700",
-                  letterSpacing: "0.06em",
-                  zIndex: 2,
-                }}>
-                  {cat.tag}
-                </div>
+                {cat.tag && (
+                  <div style={{
+                    position: "absolute",
+                    top: "16px",
+                    left: "16px",
+                    padding: "4px 12px",
+                    background: cat.color || "var(--cobalt)",
+                    color: "white",
+                    borderRadius: "99px",
+                    fontSize: "11px",
+                    fontFamily: "var(--mono)",
+                    fontWeight: "700",
+                    letterSpacing: "0.06em",
+                    zIndex: 2,
+                  }}>
+                    {cat.tag}
+                  </div>
+                )}
 
                 {/* Overlay info */}
                 <div className="category-card-overlay">
                   <div>
                     <p className="category-card-title">{cat.title}</p>
                     <p className="category-card-count">{cat.description}</p>
-                    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", marginTop: "6px", fontFamily: "var(--mono)" }}>
-                      {cat.count} →
+                    <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "12px", marginTop: "6px", fontFamily: "var(--mono)" }}>
+                      {cat.count || "Browse Collection"} →
                     </p>
                   </div>
                 </div>

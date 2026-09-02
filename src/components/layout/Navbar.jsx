@@ -37,13 +37,43 @@ export default function Navbar() {
 
   const avatarUrl = user?.user_metadata?.avatar_url || user?.avatar_url || null;
 
+  const [topBannerText, setTopBannerText] = useState(() => {
+    return localStorage.getItem("drip_promo_banner_text") || "✦ Free Color Mixing in All Branches · Express Delivery Across Pakistan ✦";
+  });
+
+  useEffect(() => {
+    let bc = null;
+    try {
+      if ("BroadcastChannel" in window) {
+        bc = new BroadcastChannel("drip_orders_realtime");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "ANNOUNCEMENT_UPDATED") {
+            setTopBannerText(event.data.payload || topBannerText);
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === "drip_promo_banner_text") {
+        setTopBannerText(localStorage.getItem("drip_promo_banner_text") || topBannerText);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
   return (
     <>
       <header className={`navbar${scrolled ? " scrolled" : ""}`}>
         {/* Compact Promo topbar */}
         <div className="navbar-topbar">
           <div className="wrap" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <p>✦ Free Color Mixing in All Branches · Express Delivery Across Pakistan ✦</p>
+            <p>{topBannerText}</p>
             <div className="navbar-topbar-links">
               <NavLink to="/track-order" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none", fontSize: "11px", marginRight: "12px" }}>
                 Track Order
@@ -78,11 +108,10 @@ export default function Navbar() {
           >
             <NavLink to="/"           className={navLinkClass} onClick={closeMenu}>Home</NavLink>
             <NavLink to="/shop"       className={navLinkClass} onClick={closeMenu}>Shop</NavLink>
-            <NavLink to="/track-order" className={navLinkClass} onClick={closeMenu}>Orders</NavLink>
+            <NavLink to="/categories" className={navLinkClass} onClick={closeMenu}>Categories</NavLink>
             <NavLink to="/visualizer" className={navLinkClass} onClick={closeMenu}>Visualizer</NavLink>
             <NavLink to="/calculator" className={navLinkClass} onClick={closeMenu}>Calculator</NavLink>
             <NavLink to="/painters"   className={navLinkClass} onClick={closeMenu}>Painters</NavLink>
-            <NavLink to="/categories" className={navLinkClass} onClick={closeMenu}>Categories</NavLink>
             <NavLink to="/about"      className={navLinkClass} onClick={closeMenu}>About</NavLink>
           </nav>
 

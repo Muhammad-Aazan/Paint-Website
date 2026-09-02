@@ -10,22 +10,7 @@ import { addToWishlist as addWishlist, removeFromWishlist as removeWishlist } fr
 import { addToCart } from "@/features/cart/cartSlice";
 import { supabase } from "@/services/supabase";
 import { syncWishlistToSupabase, syncCartToSupabase } from "@/services/supabaseHelpers";
-
-import paintBucket1 from "@/assets/paint-bkt-1.png";
-import paintBucket2 from "@/assets/paint-bkt-2.png";
-import paintBucket3 from "@/assets/paint-bkt-3.png";
-import paintBrush   from "@/assets/paint-brush-1.png";
-import roller       from "@/assets/roller.png";
-import spray        from "@/assets/spray.png";
-
-const fallbackProducts = [
-  { id: 1, image: paintBucket1, category: "Interior Paint",  name: "Cobalt Hour — Matte",      rating: "★★★★★", reviews: "128", price: 2450, unit: "/ gallon", stock: 24 },
-  { id: 2, image: paintBucket2, category: "Exterior Paint",  name: "Clay Pot — Weatherproof",  rating: "★★★★☆", reviews: "94",  price: 2850, unit: "/ gallon", stock: 9  },
-  { id: 3, image: paintBucket3, category: "Premium Paint",   name: "Forest Green",             rating: "★★★★★", reviews: "210", price: 3250, unit: "/ gallon", stock: 31 },
-  { id: 4, image: paintBrush,   category: "Brush",           name: "Premium Paint Brush",      rating: "★★★★☆", reviews: "85",  price: 750,  unit: "/ piece",  stock: 7  },
-  { id: 5, image: roller,       category: "Roller",          name: "Professional Roller",      rating: "★★★★★", reviews: "61",  price: 950,  unit: "/ piece",  stock: 22 },
-  { id: 6, image: spray,        category: "Spray Gun",       name: "Professional Spray Gun",   rating: "★★★★★", reviews: "44",  price: 3500, unit: "/ piece",  stock: 0  },
-];
+import { defaultProducts } from "@/services/productHelpers";
 
 export default function ProductsSection({
   limit,
@@ -44,7 +29,7 @@ export default function ProductsSection({
   const cartItems     = useSelector((state) => state.cart.items);
   const { user }      = useSelector((state) => state.auth);
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(defaultProducts);
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
@@ -57,12 +42,22 @@ export default function ProductsSection({
           .order("created_at", { ascending: false });
 
         if (error || !data?.length) {
-          setProducts(fallbackProducts);
+          setProducts(defaultProducts);
         } else {
-          setProducts(data);
+          const isOldMock =
+            data.length <= 6 &&
+            data.some((p) =>
+              ["Cobalt Hour — Matte", "Clay Pot — Weatherproof", "Forest Green", "Premium Paint Brush"].includes(p.name)
+            );
+
+          if (isOldMock) {
+            setProducts(defaultProducts);
+          } else {
+            setProducts(data);
+          }
         }
       } catch {
-        setProducts(fallbackProducts);
+        setProducts(defaultProducts);
       } finally {
         setLoading(false);
       }

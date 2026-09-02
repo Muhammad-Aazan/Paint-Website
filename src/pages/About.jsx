@@ -3,140 +3,196 @@ import { useNavigate } from "react-router-dom";
 import { Navbar, Footer, Button } from "@/components";
 
 const values = [
-  { icon: "🎨", title: "Crafted with Passion", desc: "Every shade is hand-tested by our paint experts to ensure perfect consistency, coverage and color accuracy." },
-  { icon: "🌿", title: "Eco-Friendly Formulas", desc: "Low-VOC and zero-VOC options available — safe for your family, better for the environment." },
-  { icon: "💎", title: "Premium Quality", desc: "Raw materials sourced from leading international suppliers, manufactured to the highest standards." },
-  { icon: "🤝", title: "Local Expertise", desc: "Built by Pakistanis, for Pakistani homes — understanding our unique climate and architecture." },
+  {
+    icon: "🎨",
+    title: "Master-Crafted Formulations",
+    desc: "Every batch is formulated with high-solids acrylic resins, lightfast pigments, and tested for Pakistan's heat and moisture.",
+  },
+  {
+    icon: "🌿",
+    title: "Zero-VOC & Odorless",
+    desc: "100% eco-friendly, odorless indoor formulas that ensure safe, breathable air quality for families, children, and pets.",
+  },
+  {
+    icon: "💎",
+    title: "Architectural Precision",
+    desc: "Raw materials sourced from leading certified suppliers to deliver washable scrub durability and flawless single-coat hide.",
+  },
+  {
+    icon: "🤝",
+    title: "National Craftsmanship",
+    desc: "Engineered in Pakistan with dedicated color consultation labs across Karachi, Lahore, Islamabad, and nationwide delivery.",
+  },
 ];
 
 const team = [
-  { name: "Tariq Ahmed", role: "Co-Founder & CEO", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200" },
-  { name: "Sara Malik",  role: "Head of Product Design", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200" },
-  { name: "Bilal Khan",  role: "Operations Director", img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200" },
+  {
+    name: "Tariq Ahmed",
+    role: "Co-Founder & CEO",
+    img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+  },
+  {
+    name: "Sara Malik",
+    role: "Head of Color & Formulation",
+    img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&auto=format&fit=crop&q=80",
+  },
+  {
+    name: "Bilal Khan",
+    role: "Director of Architectural Supply",
+    img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80",
+  },
 ];
 
 export default function About() {
   const navigate = useNavigate();
 
   return (
-    <>
+    <div className="about-page-root">
       <Navbar />
 
-      {/* Hero */}
-      <section className="inner-hero">
+      {/* 1. Refined Inner Hero */}
+      <section className="about-hero-section">
         <div className="wrap">
-          <p className="page-eyebrow">OUR STORY</p>
-          <h1 className="inner-hero-title">Pakistan's Premier<br /> Paint Experience</h1>
-          <p className="inner-hero-sub">
-            Founded in 2018, Drip Paints was born from a simple idea: every Pakistani home
-            deserves premium quality paint at an honest price.
+          <span className="page-eyebrow">OUR HERITAGE &amp; MISSION</span>
+          <h1 className="about-hero-title">
+            Architectural Color &amp; Premium Paint Formulation
+          </h1>
+          <p className="about-hero-sub">
+            Founded with a vision to redefine surface finishes across Pakistan — combining pure acrylic chemistry, zero-VOC safety, and 10,000+ custom computerized shades.
           </p>
         </div>
       </section>
 
-      {/* Mission */}
-      <section className="content-section" style={{ background: "var(--canvas)" }}>
+      {/* 2. Mission & Story */}
+      <section className="about-mission-section">
         <div className="wrap">
-          <div className="content-grid">
-            <div>
-              <p className="products-eyebrow">OUR MISSION</p>
-              <h2 style={{ fontFamily: "var(--display)", fontSize: "clamp(26px, 3vw, 38px)", fontWeight: "700", letterSpacing: "-0.02em", marginBottom: "20px", lineHeight: "1.2" }}>
-                Colour changes<br /> everything.
+          <div className="about-mission-grid">
+            <div className="about-mission-text">
+              <span className="page-eyebrow">PHILOSOPHY</span>
+              <h2 className="about-section-heading">
+                Color transforms the soul of every space.
               </h2>
-              <p style={{ color: "var(--ink-soft)", fontSize: "16px", lineHeight: "1.7", marginBottom: "16px" }}>
-                We believe a fresh coat of paint is one of the most powerful home transformations you can make. That's why we dedicate ourselves to producing paints that are consistent, vibrant, and long-lasting.
+              <p className="about-body-p">
+                We believe paint should never be an afterthought. A truly exceptional architectural coating provides more than just color — it protects structures against harsh UV heat and monsoons while enhancing natural light with velvety low-sheen finishes.
               </p>
-              <p style={{ color: "var(--ink-soft)", fontSize: "16px", lineHeight: "1.7", marginBottom: "28px" }}>
-                From our Karachi headquarters, we supply homes, contractors, and interior designers across Pakistan with world-class paint, tools, and colour expertise.
+              <p className="about-body-p">
+                From our centralized formulation facility and authorized partner distribution network, we supply residential villas, commercial high-rises, and master painters with verified batch consistency.
               </p>
-              <Button text="Shop Our Range →" className="btn btn-primary" onClick={() => navigate("/shop")} />
-            </div>
-
-            {/* Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-              {[
-                { num: "2018",  label: "Year Founded" },
-                { num: "12+",   label: "Branches" },
-                { num: "120+",  label: "Paint Shades" },
-                { num: "48k+",  label: "Customers" },
-              ].map((s) => (
-                <div key={s.label} style={{ background: "var(--surface)", border: "1px solid var(--paper-line)", borderRadius: "var(--r-lg)", padding: "28px", textAlign: "center" }}>
-                  <p style={{ fontFamily: "var(--display)", fontSize: "36px", fontWeight: "700", color: "var(--cobalt)", margin: "0 0 6px" }}>{s.num}</p>
-                  <p style={{ fontSize: "13px", color: "var(--ink-muted)", fontFamily: "var(--mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Values */}
-      <section style={{ padding: "80px 0", background: "var(--canvas-dark)", borderTop: "1px solid var(--paper-line)" }}>
-        <div className="wrap">
-          <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <p className="products-eyebrow">WHAT WE STAND FOR</p>
-            <h2 style={{ fontFamily: "var(--display)", fontSize: "clamp(26px, 3vw, 38px)", fontWeight: "700", letterSpacing: "-0.02em" }}>Our Core Values</h2>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px" }}>
-            {values.map((v) => (
-              <div key={v.title} style={{ background: "var(--surface)", border: "1px solid var(--paper-line)", borderRadius: "var(--r-lg)", padding: "28px", transition: "all 0.24s", cursor: "default" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
-                <div style={{ fontSize: "32px", marginBottom: "16px" }}>{v.icon}</div>
-                <h3 style={{ fontFamily: "var(--display)", fontSize: "18px", fontWeight: "600", marginBottom: "10px" }}>{v.title}</h3>
-                <p style={{ color: "var(--ink-soft)", fontSize: "14px", lineHeight: "1.65" }}>{v.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Team */}
-      <section className="content-section">
-        <div className="wrap">
-          <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <p className="products-eyebrow">THE PEOPLE BEHIND DRIP</p>
-            <h2 style={{ fontFamily: "var(--display)", fontSize: "clamp(26px, 3vw, 38px)", fontWeight: "700", letterSpacing: "-0.02em" }}>Meet Our Team</h2>
-          </div>
-
-          <div style={{ display: "flex", gap: "32px", justifyContent: "center", flexWrap: "wrap" }}>
-            {team.map((member) => (
-              <div key={member.name} style={{ textAlign: "center", maxWidth: "220px" }}>
-                <img
-                  src={member.img}
-                  alt={member.name}
-                  style={{ width: "110px", height: "110px", borderRadius: "50%", objectFit: "cover", marginBottom: "14px", border: "4px solid var(--paper-line)" }}
-                  loading="lazy"
+              <div className="about-cta-row">
+                <Button
+                  text="Explore Color Catalog →"
+                  className="btn btn-primary"
+                  onClick={() => navigate("/shop")}
                 />
-                <h3 style={{ fontFamily: "var(--display)", fontSize: "17px", fontWeight: "600", marginBottom: "4px" }}>{member.name}</h3>
-                <p style={{ color: "var(--ink-muted)", fontSize: "13px", fontFamily: "var(--mono)" }}>{member.role}</p>
+                <Button
+                  text="Calculate Paint Volume"
+                  className="btn btn-ghost"
+                  onClick={() => navigate("/calculator")}
+                />
+              </div>
+            </div>
+
+            {/* Key Milestones / Stats */}
+            <div className="about-stats-grid">
+              <div className="about-stat-card">
+                <span className="about-stat-num">2018</span>
+                <span className="about-stat-label">Year Founded</span>
+              </div>
+              <div className="about-stat-card">
+                <span className="about-stat-num">10,000+</span>
+                <span className="about-stat-label">Computerized Tints</span>
+              </div>
+              <div className="about-stat-card">
+                <span className="about-stat-num">100+</span>
+                <span className="about-stat-label">Cities Delivered</span>
+              </div>
+              <div className="about-stat-card">
+                <span className="about-stat-num">50k+</span>
+                <span className="about-stat-label">Villas &amp; Homes Painted</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Core Values */}
+      <section className="about-values-section">
+        <div className="wrap">
+          <div className="about-section-header">
+            <span className="page-eyebrow">STANDARDS OF EXCELLENCE</span>
+            <h2 className="about-section-heading">What We Stand For</h2>
+            <p className="about-section-sub">
+              Uncompromising dedication to quality resin, environmental responsibility, and long-term surface durability.
+            </p>
+          </div>
+
+          <div className="about-values-grid">
+            {values.map((v, i) => (
+              <div key={i} className="about-value-card">
+                <span className="about-value-icon">{v.icon}</span>
+                <h3 className="about-value-title">{v.title}</h3>
+                <p className="about-value-desc">{v.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Banner */}
-      <section style={{ background: "var(--ink)", padding: "80px 0", textAlign: "center" }}>
+      {/* 4. Leadership & Expertise */}
+      <section className="about-team-section">
         <div className="wrap">
-          <p style={{ fontFamily: "var(--mono)", fontSize: "11px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--saffron)", marginBottom: "14px" }}>
-            READY TO PAINT?
-          </p>
-          <h2 style={{ fontFamily: "var(--display)", fontSize: "clamp(28px, 3.5vw, 44px)", fontWeight: "700", color: "white", letterSpacing: "-0.02em", marginBottom: "20px" }}>
-            Start your transformation today.
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "16px", marginBottom: "32px" }}>
-            Browse 120+ hand-mixed shades or get any colour matched free at a branch.
-          </p>
-          <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Button text="Shop Products" className="btn btn-primary btn-lg" onClick={() => navigate("/shop")} />
-            <Button text="Contact Us" className="btn btn-ghost btn-lg" onClick={() => navigate("/contact")} />
+          <div className="about-section-header">
+            <span className="page-eyebrow">THE TEAM BEHIND DRIP</span>
+            <h2 className="about-section-heading">Formulation &amp; Design Leadership</h2>
+          </div>
+
+          <div className="about-team-grid">
+            {team.map((member, i) => (
+              <div key={i} className="about-team-card">
+                <div className="about-team-img-wrap">
+                  <img
+                    src={member.img}
+                    alt={member.name}
+                    className="about-team-img"
+                    loading="lazy"
+                  />
+                </div>
+                <h3 className="about-team-name">{member.name}</h3>
+                <span className="about-team-role">{member.role}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Minimalist Light CTA */}
+      <section className="about-bottom-cta">
+        <div className="wrap">
+          <div className="about-bottom-cta-inner">
+            <span className="page-eyebrow">START YOUR TRANSFORMATION</span>
+            <h2 className="about-bottom-cta-title">
+              Ready to create your dream space?
+            </h2>
+            <p className="about-bottom-cta-sub">
+              Browse 120+ curated architectural shades, test with our room visualizer, or order verified contractor gallons with nationwide shipping.
+            </p>
+            <div className="about-cta-row">
+              <Button
+                text="Shop Paint Collection →"
+                className="btn btn-primary btn-lg"
+                onClick={() => navigate("/shop")}
+              />
+              <Button
+                text="Book Professional Painter"
+                className="btn btn-ghost btn-lg"
+                onClick={() => navigate("/painters")}
+              />
+            </div>
           </div>
         </div>
       </section>
 
       <Footer />
-    </>
+    </div>
   );
 }

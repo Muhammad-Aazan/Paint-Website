@@ -475,6 +475,38 @@ export async function deductProductsStock(cartItems) {
    CUSTOMER REVIEWS & FEEDBACK HELPERS
    ========================================================================== */
 
+export async function fetchAllReviews() {
+  try {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      return data;
+    }
+  } catch (e) {
+    console.warn("fetchAllReviews remote query warning:", e.message);
+  }
+
+  // Fallback to locally stored reviews across all products
+  try {
+    const allLocalReviews = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("drip_reviews_")) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+          allLocalReviews.push(...parsed);
+        } catch {}
+      }
+    }
+    return allLocalReviews;
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchProductReviews(productId) {
   const rawId = String(productId).split("-")[0];
   try {
@@ -558,69 +590,272 @@ export async function submitProductReview(productId, { author, rating, comment, 
    ========================================================================== */
 
 export async function createInquiry(inquiryData) {
+  let result = null;
+  let savedToDb = false;
+
   try {
-    const { data, error } = await supabase.from("inquiries").insert(inquiryData).select().single();
-    if (error) throw error;
-    return data;
+    const { data, error } = await supabase.from("inquiries").insert(inquiryData).select().maybeSingle();
+    if (!error && data) {
+      result = data;
+      savedToDb = true;
+    } else if (error) {
+      console.warn("createInquiry primary error:", error.message);
+      // Attempt simplified payload
+      const simplePayload = {
+        name: inquiryData.name || inquiryData.full_name || "Customer",
+        email: inquiryData.email || "",
+        phone: inquiryData.phone || "",
+        subject: inquiryData.subject || "General Inquiry",
+        message: inquiryData.message || inquiryData.details || "",
+        status: inquiryData.status || "pending",
+      };
+      const retry = await supabase.from("inquiries").insert(simplePayload).select().maybeSingle();
+      if (!retry.error && retry.data) {
+        result = retry.data;
+        savedToDb = true;
+      }
+    }
   } catch (err) {
-    console.warn("createInquiry fallback:", err.message);
-    return { ...inquiryData, id: Date.now(), created_at: new Date().toISOString() };
+    console.warn("createInquiry fallback warning:", err.message);
   }
+
+  const finalInquiry = result || {
+    ...inquiryData,
+    id: inquiryData.id || `INQ-${Date.now()}`,
+    status: inquiryData.status || "pending",
+    created_at: inquiryData.created_at || new Date().toISOString(),
+    _synced: savedToDb,
+  };
+
+  try {
+    const existing = JSON.parse(localStorage.getItem("drip_inquiries_db") || "[]");
+    const updated = [finalInquiry, ...existing.filter((i) => String(i.id) !== String(finalInquiry.id))];
+    localStorage.setItem("drip_inquiries_db", JSON.stringify(updated));
+
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("drip_orders_realtime");
+      bc.postMessage({ type: "INQUIRY_CREATED", inquiry: finalInquiry });
+      bc.close();
+    }
+  } catch (e) {
+    console.warn("Local inquiry save error:", e);
+  }
+
+  return finalInquiry;
 }
 
 export async function fetchAllInquiries() {
+  let dbInquiries = [];
   try {
     const { data, error } = await supabase.from("inquiries").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data || [];
+    if (!error && data) {
+      dbInquiries = data;
+    }
   } catch (err) {
     console.warn("fetchAllInquiries fallback:", err.message);
-    return [];
   }
+
+  let localInquiries = [];
+  try {
+    localInquiries = JSON.parse(localStorage.getItem("drip_inquiries_db") || "[]");
+  } catch {
+    localInquiries = [];
+  }
+
+  const map = new Map();
+  dbInquiries.forEach((item) => map.set(String(item.id), item));
+  localInquiries.forEach((item) => {
+    if (!map.has(String(item.id))) {
+      map.set(String(item.id), item);
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
 export async function updateInquiryStatus(id, status) {
   try {
-    const { data, error } = await supabase.from("inquiries").update({ status }).eq("id", id).select().single();
-    if (error) throw error;
-    return data;
+    await supabase.from("inquiries").update({ status }).eq("id", id);
   } catch (err) {
     console.warn("updateInquiryStatus warning:", err.message);
-    return null;
   }
+
+  try {
+    const existing = JSON.parse(localStorage.getItem("drip_inquiries_db") || "[]");
+    const updated = existing.map((i) => (String(i.id) === String(id) ? { ...i, status } : i));
+    localStorage.setItem("drip_inquiries_db", JSON.stringify(updated));
+
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("drip_orders_realtime");
+      bc.postMessage({ type: "INQUIRY_STATUS_CHANGED", id, status });
+      bc.close();
+    }
+  } catch (e) {
+    console.warn("updateInquiryStatus local error:", e);
+  }
+
+  return { id, status };
 }
 
 export async function createBooking(bookingData) {
+  let result = null;
+  let savedToDb = false;
+
+  // Format details with city embedded so no information is ever lost even if schema lacks city column
+  const cityTag = bookingData.city ? `[City: ${bookingData.city}]` : "";
+  const composedDetails = [cityTag, bookingData.details].filter(Boolean).join(" ");
+
+  // 1. Try full insertion with all columns
   try {
-    const { data, error } = await supabase.from("bookings").insert(bookingData).select().single();
-    if (error) throw error;
-    return data;
+    const { data, error } = await supabase
+      .from("bookings")
+      .insert({
+        full_name: bookingData.full_name || bookingData.name || "Customer",
+        phone: bookingData.phone || "",
+        city: bookingData.city || "Karachi",
+        service_required: bookingData.service_required || bookingData.service || "Interior Painting",
+        details: bookingData.details || "",
+        status: bookingData.status || "pending",
+        created_at: bookingData.created_at || new Date().toISOString(),
+      })
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      result = data;
+      savedToDb = true;
+    } else if (error) {
+      console.warn("createBooking primary schema mismatch, retrying adapted payloads:", error.message);
+
+      // Attempt fallbacks for different schemas:
+      // Fallback 1: without 'city' column (store city inside details / notes)
+      const payloadWithoutCity = {
+        full_name: bookingData.full_name || bookingData.name || "Customer",
+        phone: bookingData.phone || "",
+        service_required: bookingData.service_required || bookingData.service || "Interior Painting",
+        details: composedDetails,
+        status: bookingData.status || "pending",
+      };
+
+      const retry1 = await supabase.from("bookings").insert(payloadWithoutCity).select().maybeSingle();
+      if (!retry1.error && retry1.data) {
+        result = { ...retry1.data, city: bookingData.city };
+        savedToDb = true;
+      } else {
+        // Fallback 2: columns 'name', 'phone', 'service', 'notes'
+        const payloadAlt2 = {
+          name: bookingData.full_name || bookingData.name || "Customer",
+          phone: bookingData.phone || "",
+          service: bookingData.service_required || bookingData.service || "Interior Painting",
+          notes: composedDetails,
+          status: bookingData.status || "pending",
+        };
+        const retry2 = await supabase.from("bookings").insert(payloadAlt2).select().maybeSingle();
+        if (!retry2.error && retry2.data) {
+          result = { ...retry2.data, full_name: payloadAlt2.name, service_required: payloadAlt2.service, city: bookingData.city, details: composedDetails };
+          savedToDb = true;
+        }
+      }
+    }
   } catch (err) {
-    console.warn("createBooking fallback:", err.message);
-    return { ...bookingData, id: Date.now(), created_at: new Date().toISOString() };
+    console.warn("createBooking supabase network catch:", err.message);
   }
+
+  // 2. Persistently record in local bookings database so Admin Portal always displays it live
+  const finalBooking = result || {
+    ...bookingData,
+    id: bookingData.id || `BK-${Date.now()}`,
+    full_name: bookingData.full_name || bookingData.name || "Customer",
+    phone: bookingData.phone || "",
+    city: bookingData.city || "Karachi",
+    service_required: bookingData.service_required || bookingData.service || "Interior Painting",
+    details: bookingData.details || "",
+    status: bookingData.status || "pending",
+    created_at: bookingData.created_at || new Date().toISOString(),
+    _synced: savedToDb,
+  };
+
+  try {
+    const existing = JSON.parse(localStorage.getItem("drip_bookings_db") || "[]");
+    const updated = [finalBooking, ...existing.filter((b) => String(b.id) !== String(finalBooking.id))];
+    localStorage.setItem("drip_bookings_db", JSON.stringify(updated));
+
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("drip_orders_realtime");
+      bc.postMessage({ type: "BOOKING_CREATED", booking: finalBooking });
+      bc.close();
+    }
+  } catch (e) {
+    console.warn("Local booking save error:", e);
+  }
+
+  return finalBooking;
 }
 
 export async function fetchAllBookings() {
+  let dbBookings = [];
   try {
     const { data, error } = await supabase.from("bookings").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data || [];
+    if (!error && data) {
+      dbBookings = data.map((b) => {
+        const extractedCity = b.city || b.location || (b.details?.match(/\[City:\s*([^\]]+)\]/)?.[1]) || (b.notes?.match(/\[City:\s*([^\]]+)\]/)?.[1]) || "Karachi";
+        const cleanDetails = (b.details || b.notes || b.message || "").replace(/\[City:\s*[^\]]+\]\s*/g, "").trim();
+        return {
+          id: b.id,
+          full_name: b.full_name || b.name || "Customer",
+          phone: b.phone || "N/A",
+          city: extractedCity,
+          service_required: b.service_required || b.service || "Interior Painting",
+          details: cleanDetails || b.details || b.notes || "No additional notes",
+          status: b.status || "pending",
+          created_at: b.created_at || new Date().toISOString(),
+        };
+      });
+    }
   } catch (err) {
-    console.warn("fetchAllBookings fallback:", err.message);
-    return [];
+    console.warn("fetchAllBookings db warning:", err.message);
   }
+
+  let localBookings = [];
+  try {
+    localBookings = JSON.parse(localStorage.getItem("drip_bookings_db") || "[]");
+  } catch {
+    localBookings = [];
+  }
+
+  const map = new Map();
+  dbBookings.forEach((item) => map.set(String(item.id), item));
+  localBookings.forEach((item) => {
+    if (!map.has(String(item.id))) {
+      map.set(String(item.id), item);
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
 export async function updateBookingStatus(id, status) {
   try {
-    const { data, error } = await supabase.from("bookings").update({ status }).eq("id", id).select().single();
-    if (error) throw error;
-    return data;
+    await supabase.from("bookings").update({ status }).eq("id", id);
   } catch (err) {
-    console.warn("updateBookingStatus warning:", err.message);
-    return null;
+    console.warn("updateBookingStatus remote warning:", err.message);
   }
+
+  try {
+    const existing = JSON.parse(localStorage.getItem("drip_bookings_db") || "[]");
+    const updated = existing.map((b) => (String(b.id) === String(id) ? { ...b, status } : b));
+    localStorage.setItem("drip_bookings_db", JSON.stringify(updated));
+
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("drip_orders_realtime");
+      bc.postMessage({ type: "BOOKING_STATUS_CHANGED", id, status });
+      bc.close();
+    }
+  } catch (e) {
+    console.warn("updateBookingStatus local error:", e);
+  }
+
+  return { id, status };
 }
 
 /* ==========================================================================

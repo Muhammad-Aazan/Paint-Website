@@ -7,124 +7,7 @@ import { addToCart } from "@/features/cart/cartSlice";
 import { addToWishlist as addWishlist, removeFromWishlist as removeWishlist } from "@/features/wishlist/wishlistSlice";
 import { supabase } from "@/services/supabase";
 import { syncWishlistToSupabase, syncCartToSupabase, fetchProductReviews, submitProductReview } from "@/services/supabaseHelpers";
-
-import paintBucket1 from "@/assets/paint-bkt-1.png";
-import paintBucket2 from "@/assets/paint-bkt-2.png";
-import paintBucket3 from "@/assets/paint-bkt-3.png";
-import paintBrush   from "@/assets/paint-brush-1.png";
-import roller       from "@/assets/roller.png";
-import spray        from "@/assets/spray.png";
-
-const fallbackProducts = [
-  {
-    id: 1,
-    image: paintBucket1,
-    category: "Interior Paint",
-    name: "Cobalt Hour — Matte",
-    rating: "★★★★★",
-    ratingScore: 4.9,
-    reviews: 128,
-    price: 2450,
-    unit: "/ gallon",
-    stock: 24,
-    description: "A rich, velvety deep cobalt interior paint designed for statement walls and tranquil spaces. Formulated with zero VOCs and advanced micro-pigment technology for flawless one-coat hide.",
-    sheen: "Ultra-Matte",
-    coverage: "350 – 400 sq. ft. per gallon",
-    dryTime: "30 min touch, 2 hours recoat",
-    cleanup: "Soap & warm water",
-    isPaint: true,
-  },
-  {
-    id: 2,
-    image: paintBucket2,
-    category: "Exterior Paint",
-    name: "Clay Pot — Weatherproof",
-    rating: "★★★★☆",
-    ratingScore: 4.7,
-    reviews: 94,
-    price: 2850,
-    unit: "/ gallon",
-    stock: 9,
-    description: "An earthy, resilient exterior acrylic latex formula engineered to withstand intense sunlight, monsoon rains, and temperature swings without cracking or fading.",
-    sheen: "Low-Lustre Satin",
-    coverage: "300 – 350 sq. ft. per gallon",
-    dryTime: "1 hour touch, 4 hours recoat",
-    cleanup: "Water & detergent",
-    isPaint: true,
-  },
-  {
-    id: 3,
-    image: paintBucket3,
-    category: "Premium Paint",
-    name: "Forest Green — Luxury Enamel",
-    rating: "★★★★★",
-    ratingScore: 5.0,
-    reviews: 210,
-    price: 3250,
-    unit: "/ gallon",
-    stock: 31,
-    description: "Our signature luxury interior & exterior architectural coating with unmatched depth of color and superior washability for busy homes and high-traffic areas.",
-    sheen: "Velvet Eggshell",
-    coverage: "400 – 450 sq. ft. per gallon",
-    dryTime: "45 min touch, 2 hours recoat",
-    cleanup: "Warm water",
-    isPaint: true,
-  },
-  {
-    id: 4,
-    image: paintBrush,
-    category: "Brushes",
-    name: "Premium Paint Brush (2.5\")",
-    rating: "★★★★☆",
-    ratingScore: 4.6,
-    reviews: 85,
-    price: 750,
-    unit: "/ piece",
-    stock: 18,
-    description: "Handcrafted synthetic tapered bristles for razor-sharp cutting-in lines and zero brush strokes. Ergonomic hardwood handle with stainless steel ferrule.",
-    sheen: "N/A",
-    coverage: "N/A",
-    dryTime: "N/A",
-    cleanup: "Rinse immediately after use",
-    isPaint: false,
-  },
-  {
-    id: 5,
-    image: roller,
-    category: "Rollers",
-    name: "Professional Roller & Frame (9\")",
-    rating: "★★★★★",
-    ratingScore: 4.8,
-    reviews: 61,
-    price: 950,
-    unit: "/ piece",
-    stock: 22,
-    description: "Shed-resistant microfiber roller sleeve with a heavy-duty 5-wire cage frame. Delivers ultra-smooth, uniform paint release with minimal splatter.",
-    sheen: "N/A",
-    coverage: "N/A",
-    dryTime: "N/A",
-    cleanup: "Wash with warm water and spin dry",
-    isPaint: false,
-  },
-  {
-    id: 6,
-    image: spray,
-    category: "Spray Equipment",
-    name: "Professional HVLP Spray Gun",
-    rating: "★★★★★",
-    ratingScore: 4.9,
-    reviews: 44,
-    price: 3500,
-    unit: "/ piece",
-    stock: 5,
-    description: "High-volume low-pressure precision spray gun for glass-smooth finishes on cabinets, doors, furniture, and walls. 3 adjustable brass spray patterns.",
-    sheen: "N/A",
-    coverage: "N/A",
-    dryTime: "N/A",
-    cleanup: "Flush with solvent/water immediately",
-    isPaint: false,
-  },
-];
+import { defaultProducts } from "@/services/productHelpers";
 
 const colorSwatches = [
   { name: "Cobalt Hour", hex: "#1e3d6e", code: "DP-01" },
@@ -231,7 +114,7 @@ export default function ProductDetail() {
             cleanup: "Warm water & soap",
           });
         } else {
-          const found = fallbackProducts.find((p) => String(p.id) === String(id)) || fallbackProducts[0];
+          const found = defaultProducts.find((p) => String(p.id) === String(id)) || defaultProducts[0];
           setProduct(found);
         }
 
@@ -246,7 +129,7 @@ export default function ProductDetail() {
           })));
         }
       } catch {
-        const found = fallbackProducts.find((p) => String(p.id) === String(id)) || fallbackProducts[0];
+        const found = defaultProducts.find((p) => String(p.id) === String(id)) || defaultProducts[0];
         setProduct(found);
       } finally {
         setLoading(false);
@@ -890,8 +773,8 @@ export default function ProductDetail() {
           <section className="pdp-related-section">
             <h2 className="pdp-related-title">Recommended Accessories & Paints</h2>
             <div className="products-grid">
-              {fallbackProducts
-                .filter((p) => String(p.id) !== String(product.id))
+              {defaultProducts
+                .filter((p) => String(p.id) !== String(product?.id))
                 .slice(0, 3)
                 .map((rel) => (
                   <div

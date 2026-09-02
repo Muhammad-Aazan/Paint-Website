@@ -60,24 +60,38 @@ export default function App() {
         <Routes>
           <Route path="/"                element={<Home />} />
           <Route path="/shop"            element={<Shop />} />
+          <Route path="/Shop"            element={<Shop />} />
           <Route path="/categories"      element={<Categories />} />
+          <Route path="/Categories"      element={<Categories />} />
           <Route path="/about"           element={<About />} />
+          <Route path="/About"           element={<About />} />
+          <Route path="/about-us"        element={<About />} />
           <Route path="/contact"         element={<Contact />} />
+          <Route path="/Contact"         element={<Contact />} />
           <Route path="/painters"        element={<Painters />} />
+          <Route path="/Painters"        element={<Painters />} />
           <Route path="/wishlist"        element={<Wishlist />} />
+          <Route path="/Wishlist"        element={<Wishlist />} />
           <Route path="/settings"        element={<Settings />} />
+          <Route path="/Settings"        element={<Settings />} />
           <Route path="/admin"           element={<Admin />} />
+          <Route path="/Admin"           element={<Admin />} />
+          <Route path="/admin/*"         element={<Admin />} />
           <Route path="/login"           element={<Login />} />
           <Route path="/Login"           element={<Login />} />
           <Route path="/signup"          element={<Signup />} />
           <Route path="/Signup"          element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/cart"            element={<Cart />} />
+          <Route path="/Cart"            element={<Cart />} />
           <Route path="/AddToCart"       element={<Cart />} />
           <Route path="/product/:id"     element={<ProductDetail />} />
           <Route path="/calculator"      element={<Calculator />} />
+          <Route path="/Calculator"      element={<Calculator />} />
           <Route path="/visualizer"      element={<Visualizer />} />
+          <Route path="/Visualizer"      element={<Visualizer />} />
           <Route path="/track-order"     element={<TrackOrder />} />
+          <Route path="/TrackOrder"      element={<TrackOrder />} />
           <Route
             path="/checkout"
             element={
