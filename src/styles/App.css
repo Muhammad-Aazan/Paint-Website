@@ -3746,8 +3746,18 @@ textarea.form-input { resize: vertical; min-height: 130px; }
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
-  justify-content: center;
+  padding: 4px 4px 10px;
+  justify-content: flex-start;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.shop-cat-pills::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 900px) {
+  .shop-cat-pills {
+    justify-content: center;
+  }
 }
 
 .shop-cat-pill {
@@ -7054,4 +7064,305 @@ textarea.form-input { resize: vertical; min-height: 130px; }
   background: #047857;
   transform: scale(1.05);
 }
+
+/* =====================================================
+   MASTER PIXEL-PERFECT RESPONSIVE SYSTEM
+   Ensures flawless layout from 320px to 4K screens
+   ===================================================== */
+
+/* Global container & anti-overflow guarantees */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden !important;
+}
+
+*, *::before, *::after {
+  max-width: 100%;
+}
+
+img, video, iframe, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* --- Breakpoint: Small & Standard Mobile (max-width: 480px) --- */
+@media (max-width: 480px) {
+  .wrap {
+    padding: 0 14px !important;
+  }
+
+  /* Top Announcement Bar */
+  .navbar-topbar {
+    padding: 4px 0;
+  }
+  .navbar-topbar p {
+    font-size: 10px;
+  }
+  .navbar-topbar-links a {
+    font-size: 10px !important;
+  }
+
+  /* Navbar Header */
+  .navbar-main {
+    height: 52px !important;
+  }
+  .navbar-logo {
+    font-size: 20px !important;
+  }
+  .navbar-actions {
+    gap: 4px;
+  }
+  .navbar-icon-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  /* Hero Section */
+  .hero-carousel-section {
+    min-height: 72vh !important;
+    padding: 44px 0 32px !important;
+  }
+  .hero-carousel-badge {
+    font-size: 10px !important;
+    padding: 4px 10px !important;
+    margin-bottom: 12px !important;
+  }
+  .hero-carousel-title {
+    font-size: clamp(24px, 7.5vw, 34px) !important;
+    line-height: 1.18 !important;
+    margin-bottom: 12px !important;
+  }
+  .hero-carousel-sub {
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 20px !important;
+  }
+  .hero-carousel-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  .hero-carousel-actions .btn,
+  .hero-carousel-wa-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 18px !important;
+    font-size: 13px !important;
+  }
+
+  /* Products Grid */
+  .products {
+    padding: 48px 0 !important;
+  }
+  .products-header {
+    margin-bottom: 24px !important;
+  }
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .product-card {
+    padding: 10px !important;
+    border-radius: var(--r-md) !important;
+  }
+  .product-card-img-wrap,
+  .product-img-box {
+    height: 130px !important;
+    padding: 8px !important;
+  }
+  .product-card-title,
+  .product-title {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 4px !important;
+  }
+  .product-card-price,
+  .product-price {
+    font-size: 13.5px !important;
+  }
+  .product-card-btn,
+  .btn-add-cart {
+    padding: 8px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Trust Features */
+  .trust-features-section {
+    padding: 24px 0 !important;
+  }
+  .trust-features-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Promo Banners */
+  .promo-banners-section {
+    padding: 44px 0 !important;
+  }
+  .promo-banners-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .promo-card {
+    padding: 18px !important;
+  }
+  .promo-coupon-box {
+    padding: 6px 10px !important;
+  }
+
+  /* Consultation Card */
+  .consultation-section {
+    padding: 44px 0 !important;
+  }
+  .consultation-card {
+    grid-template-columns: 1fr !important;
+    border-radius: var(--r-lg) !important;
+  }
+  .consultation-content {
+    padding: 20px 16px !important;
+  }
+  .consultation-title {
+    font-size: 20px !important;
+  }
+  .consultation-buttons {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  .consultation-buttons .btn {
+    width: 100% !important;
+  }
+
+  /* Testimonials */
+  .testimonials {
+    padding: 44px 0 !important;
+  }
+  .testimonials-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .testimonial-card {
+    padding: 18px !important;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 48px 0 24px !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+  .footer-bottom {
+    flex-direction: column !important;
+    gap: 12px !important;
+    text-align: center !important;
+  }
+
+  /* PDP (Product Detail Page) */
+  .pdp-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+    margin-bottom: 36px !important;
+  }
+  .pdp-main-image-wrap {
+    min-height: 280px !important;
+    padding: 20px !important;
+  }
+  .pdp-title {
+    font-size: 22px !important;
+  }
+  .pdp-actions-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  .pdp-add-btn {
+    width: 100% !important;
+  }
+  .pdp-swatch-grid {
+    gap: 8px !important;
+  }
+  .pdp-swatch-item {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  /* Cart Drawer & Modals */
+  .cart-drawer-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  .quickview-modal-content {
+    width: 95vw !important;
+    padding: 20px !important;
+  }
+}
+
+/* --- Breakpoint: Ultra Small Mobile (max-width: 360px) --- */
+@media (max-width: 360px) {
+  .wrap {
+    padding: 0 10px !important;
+  }
+  .products-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .about-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .pdp-finish-grid, .pdp-size-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Breakpoint: Tablet Portrait (481px to 768px) --- */
+@media (min-width: 481px) and (max-width: 768px) {
+  .wrap {
+    padding: 0 20px !important;
+  }
+  .trust-features-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 18px !important;
+  }
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+  }
+  .promo-banners-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .consultation-card {
+    grid-template-columns: 1fr !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 32px !important;
+  }
+}
+
+/* --- Breakpoint: Tablet Landscape & Small Laptops (769px to 1024px) --- */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .wrap {
+    padding: 0 28px !important;
+  }
+  .trust-features-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px !important;
+  }
+  .products-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 18px !important;
+  }
+  .promo-banners-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 18px !important;
+  }
+  .consultation-card {
+    grid-template-columns: 1.15fr 0.85fr !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1.4fr 1fr 1fr 1fr !important;
+    gap: 24px !important;
+  }
+}
+
 
